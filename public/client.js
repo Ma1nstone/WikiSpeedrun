@@ -1,5 +1,12 @@
 const socket = io();
 
+socket.on("server:online", ({ count }) => {
+  const el = document.getElementById("players");
+  if (el) {
+    el.textContent = `${count} players online`;
+  }
+});
+
 let roomCode = null;
 let isHost = false;
 let playerName = "";
