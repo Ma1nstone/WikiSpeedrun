@@ -20,33 +20,7 @@ app.use(express.static(path.join(__dirname)));
 
 // ─── Race Challenges ──────────────────────────────────────────────────────────
 // Served to client via /api/challenges so the page can display start/target info
-const RACE_CHALLENGES = [
-  { start: 'Moon',                 target: 'Pizza',             startUrl: '/wiki/Moon',                  targetUrl: '/wiki/Pizza' },
-  { start: 'Cleopatra',            target: 'Internet',          startUrl: '/wiki/Cleopatra',              targetUrl: '/wiki/Internet' },
-  { start: 'Dinosaur',             target: 'Stock market',      startUrl: '/wiki/Dinosaur',               targetUrl: '/wiki/Stock_market' },
-  { start: 'Ancient Rome',         target: 'Basketball',        startUrl: '/wiki/Ancient_Rome',           targetUrl: '/wiki/Basketball' },
-  { start: 'Photosynthesis',       target: 'World War II',      startUrl: '/wiki/Photosynthesis',         targetUrl: '/wiki/World_War_II' },
-  { start: 'Black hole',           target: 'Music',             startUrl: '/wiki/Black_hole',             targetUrl: '/wiki/Music' },
-  { start: 'Charles Darwin',       target: 'Nuclear weapon',    startUrl: '/wiki/Charles_Darwin',         targetUrl: '/wiki/Nuclear_weapon' },
-  { start: 'William Shakespeare',  target: 'Quantum mechanics', startUrl: '/wiki/William_Shakespeare',    targetUrl: '/wiki/Quantum_mechanics' },
-  { start: 'Great Wall of China',  target: 'Jazz',              startUrl: '/wiki/Great_Wall_of_China',    targetUrl: '/wiki/Jazz' },
-  { start: 'Albert Einstein',      target: 'Football',          startUrl: '/wiki/Albert_Einstein',        targetUrl: '/wiki/Association_football' },
-  { start: 'Titanic',              target: 'Photography',       startUrl: '/wiki/Titanic',                targetUrl: '/wiki/Photography' },
-  { start: 'Amazon rainforest',    target: 'Television',        startUrl: '/wiki/Amazon_rainforest',      targetUrl: '/wiki/Television' },
-  { start: 'Genghis Khan',         target: 'Chess',             startUrl: '/wiki/Genghis_Khan',           targetUrl: '/wiki/Chess' },
-  { start: 'Mount Everest',        target: 'Democracy',         startUrl: '/wiki/Mount_Everest',          targetUrl: '/wiki/Democracy' },
-  { start: 'Nikola Tesla',         target: 'Coffee',            startUrl: '/wiki/Nikola_Tesla',           targetUrl: '/wiki/Coffee' },
-  { start: 'French Revolution',    target: 'Baseball',          startUrl: '/wiki/French_Revolution',      targetUrl: '/wiki/Baseball' },
-  { start: 'DNA',                  target: 'Guitar',            startUrl: '/wiki/DNA',                    targetUrl: '/wiki/Guitar' },
-  { start: 'Roman Empire',         target: 'Chocolate',         startUrl: '/wiki/Roman_Empire',           targetUrl: '/wiki/Chocolate' },
-  { start: 'Isaac Newton',         target: 'Sushi',             startUrl: '/wiki/Isaac_Newton',           targetUrl: '/wiki/Sushi' },
-  { start: 'Viking',               target: 'Cinema',            startUrl: '/wiki/Vikings',                targetUrl: '/wiki/Cinema' },
-  { start: 'Volcano',              target: 'Olympics',          startUrl: '/wiki/Volcano',                targetUrl: '/wiki/Olympic_Games' },
-  { start: 'Napoleon',             target: 'Tennis',            startUrl: '/wiki/Napoleon',               targetUrl: '/wiki/Tennis' },
-  { start: 'Shark',                target: 'Piano',             startUrl: '/wiki/Shark',                  targetUrl: '/wiki/Piano' },
-  { start: 'Space Shuttle',        target: 'Buddhism',          startUrl: '/wiki/Space_Shuttle',          targetUrl: '/wiki/Buddhism' },
-  { start: 'Eiffel Tower',         target: 'Bacteria',          startUrl: '/wiki/Eiffel_Tower',           targetUrl: '/wiki/Bacteria' },
-];
+const { RACE_CHALLENGES } = require('./RaceChallenges');
 
 // Expose challenges list to client (names only, no URLs needed client-side)
 app.get('/api/challenges', (req, res) => {
