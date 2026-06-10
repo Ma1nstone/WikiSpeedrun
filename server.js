@@ -14,7 +14,6 @@ const io = new Server(server, {
   cors: { origin: '*' }
 });
 
-const PORT = process.env.PORT || 3000;
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -394,8 +393,6 @@ function handleLeave(socket) {
 
 // ─── Start Server ──────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log("Server running");
+server.listen(process.env.PORT || 3000, "0.0.0.0", () => {
+  console.log(`Server running on port ${process.env.PORT || 3000}`);
 });
