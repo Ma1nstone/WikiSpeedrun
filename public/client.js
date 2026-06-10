@@ -307,36 +307,32 @@ socket.on("game:starting", (data) => {
   }, 1000);
 });
 
-// ─── Wikipedia loader — uses ?action=render for real Wikipedia look ───────────
+// ─── Wikipedia loader — proxied through our server to avoid CORS ──────────────
 async function loadWikipedia(url, articleTitle) {
   const loading = document.getElementById("wiki-loading");
   loading.classList.remove("hidden");
 
-  // Extract title from /wiki/Title
   const rawTitle = decodeURIComponent((url.split("/wiki/")[1] || "").split("#")[0]);
-  // Use the language based on punishment state
   const lang = punished ? "zh" : "en";
-  const renderUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(rawTitle)}?action=render`;
+
+  // Use our server-side proxy to fetch Wikipedia content (avoids CORS block)
+  const proxyUrl = `/wiki-proxy?title=${encodeURIComponent(rawTitle)}&lang=${lang}`;
 
   try {
-    const res = await fetch(renderUrl);
-    if (!res.ok) throw new Error("fetch failed");
-    let html = await res.text();
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error("proxy fetch failed");
+    const html = await res.text();
 
     const frame = document.getElementById("wiki-frame");
 
-    // Inject minimal CSS: just hide search/nav chrome, keep everything else real Wikipedia
     const injectCSS = `
-      <link rel="stylesheet" href="https://${lang}.wikipedia.org/w/load.php?modules=mediawiki.legacy.commonPrint,shared|mediawiki.skinning.elements|mediawiki.skinning.content|mediawiki.skinning.interface|skins.vector.styles|site|mediawiki.skinning.content.parsoid|ext.cite.styles&only=styles&skin=vector">
+      <link rel="stylesheet" href="https://${lang}.wikipedia.org/w/load.php?modules=mediawiki.legacy.commonPrint,shared|mediawiki.skinning.elements|mediawiki.skinning.content|mediawiki.skinning.interface|skins.vector.styles|site&only=styles&skin=vector">
       <style>
         body { margin: 0; padding: 16px 24px; font-family: -apple-system, 'Linux Libertine', Georgia, serif; }
-        /* Hide search inputs — using search = punishment */
         #searchform, .cdx-search-input, .vector-search-box,
         #p-search, .search-toggle, #searchInput, .searchButton { display: none !important; }
-        /* Keep Wikipedia link styling */
         a[href] { color: #3366CC; }
         a[href]:hover { text-decoration: underline; }
-        /* Dim non-article links so they're visually disabled */
         a[href*="Special:"], a[href*="Wikipedia:"], a[href*="Help:"],
         a[href*="Talk:"], a[href*="User:"], a[href*="Category:"],
         a[href*="Portal:"], a[href*="Template:"], a[href*="Draft:"],
@@ -346,6 +342,7 @@ async function loadWikipedia(url, articleTitle) {
         }
         .mw-editsection { display: none !important; }
         .catlinks { display: none !important; }
+        img { max-width: 100%; height: auto; }
       </style>
     `;
 

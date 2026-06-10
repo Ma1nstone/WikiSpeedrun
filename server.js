@@ -1,54 +1,65 @@
 /**
- * WikiRace - server.js
- * Changes:
- * - RACE_CHALLENGES array with start/target names + Wikipedia URLs (served via API)
- * - First person to reach target wins immediately (game ends on first finish)
+ * SpeedWiki - server.js
  */
 
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const https = require('https');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-// Serve public folder AND root (for favicon in /images/)
+// Serve public folder AND root (for favicon)
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname)));
 
-// ─── Race Challenges ──────────────────────────────────────────────────────────
-// Served to client via /api/challenges so the page can display start/target info
-const RACE_CHALLENGES = [
-  { start: 'Moon',                 target: 'Pizza',             startUrl: '/wiki/Moon',                  targetUrl: '/wiki/Pizza' },
-  { start: 'Cleopatra',            target: 'Internet',          startUrl: '/wiki/Cleopatra',              targetUrl: '/wiki/Internet' },
-  { start: 'Dinosaur',             target: 'Stock market',      startUrl: '/wiki/Dinosaur',               targetUrl: '/wiki/Stock_market' },
-  { start: 'Ancient Rome',         target: 'Basketball',        startUrl: '/wiki/Ancient_Rome',           targetUrl: '/wiki/Basketball' },
-  { start: 'Photosynthesis',       target: 'World War II',      startUrl: '/wiki/Photosynthesis',         targetUrl: '/wiki/World_War_II' },
-  { start: 'Black hole',           target: 'Music',             startUrl: '/wiki/Black_hole',             targetUrl: '/wiki/Music' },
-  { start: 'Charles Darwin',       target: 'Nuclear weapon',    startUrl: '/wiki/Charles_Darwin',         targetUrl: '/wiki/Nuclear_weapon' },
-  { start: 'William Shakespeare',  target: 'Quantum mechanics', startUrl: '/wiki/William_Shakespeare',    targetUrl: '/wiki/Quantum_mechanics' },
-  { start: 'Great Wall of China',  target: 'Jazz',              startUrl: '/wiki/Great_Wall_of_China',    targetUrl: '/wiki/Jazz' },
-  { start: 'Albert Einstein',      target: 'Football',          startUrl: '/wiki/Albert_Einstein',        targetUrl: '/wiki/Association_football' },
-  { start: 'Titanic',              target: 'Photography',       startUrl: '/wiki/Titanic',                targetUrl: '/wiki/Photography' },
-  { start: 'Amazon rainforest',    target: 'Television',        startUrl: '/wiki/Amazon_rainforest',      targetUrl: '/wiki/Television' },
-  { start: 'Genghis Khan',         target: 'Chess',             startUrl: '/wiki/Genghis_Khan',           targetUrl: '/wiki/Chess' },
-  { start: 'Mount Everest',        target: 'Democracy',         startUrl: '/wiki/Mount_Everest',          targetUrl: '/wiki/Democracy' },
-  { start: 'Nikola Tesla',         target: 'Coffee',            startUrl: '/wiki/Nikola_Tesla',           targetUrl: '/wiki/Coffee' },
-  { start: 'French Revolution',    target: 'Baseball',          startUrl: '/wiki/French_Revolution',      targetUrl: '/wiki/Baseball' },
-  { start: 'DNA',                  target: 'Guitar',            startUrl: '/wiki/DNA',                    targetUrl: '/wiki/Guitar' },
-  { start: 'Roman Empire',         target: 'Chocolate',         startUrl: '/wiki/Roman_Empire',           targetUrl: '/wiki/Chocolate' },
-  { start: 'Isaac Newton',         target: 'Sushi',             startUrl: '/wiki/Isaac_Newton',           targetUrl: '/wiki/Sushi' },
-  { start: 'Viking',               target: 'Cinema',            startUrl: '/wiki/Vikings',                targetUrl: '/wiki/Cinema' },
-  { start: 'Volcano',              target: 'Olympics',          startUrl: '/wiki/Volcano',                targetUrl: '/wiki/Olympic_Games' },
-  { start: 'Napoleon',             target: 'Tennis',            startUrl: '/wiki/Napoleon',               targetUrl: '/wiki/Tennis' },
-  { start: 'Shark',                target: 'Piano',             startUrl: '/wiki/Shark',                  targetUrl: '/wiki/Piano' },
-  { start: 'Space Shuttle',        target: 'Buddhism',          startUrl: '/wiki/Space_Shuttle',          targetUrl: '/wiki/Buddhism' },
-  { start: 'Eiffel Tower',         target: 'Bacteria',          startUrl: '/wiki/Eiffel_Tower',           targetUrl: '/wiki/Bacteria' },
-];
+// ─── Wikipedia Proxy ──────────────────────────────────────────────────────────
+// Bypasses CORS by fetching Wikipedia server-side and returning to client
+app.get('/wiki-proxy', (req, res) => {
+  const title = req.query.title;
+  const lang  = req.query.lang || 'en';
 
-// Expose challenges list to client (names only, no URLs needed client-side)
+  if (!title) return res.status(400).send('Missing title');
+
+  const wikiUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title)}?action=render`;
+
+  https.get(wikiUrl, {
+    headers: {
+      'User-Agent': 'SpeedWiki/1.0 (https://wiki-speedrun.onrender.com)',
+      'Accept': 'text/html',
+    }
+  }, (wikiRes) => {
+    // Follow redirects
+    if (wikiRes.statusCode === 301 || wikiRes.statusCode === 302) {
+      const redirectUrl = wikiRes.headers.location;
+      const redirectTitle = redirectUrl.split('/wiki/')[1]?.split('?')[0];
+      if (redirectTitle) {
+        return res.redirect(`/wiki-proxy?title=${redirectTitle}&lang=${lang}`);
+      }
+    }
+
+    if (wikiRes.statusCode !== 200) {
+      return res.status(wikiRes.statusCode).send('Wikipedia error');
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300'); // cache 5 mins
+
+    let body = '';
+    wikiRes.on('data', chunk => body += chunk);
+    wikiRes.on('end', () => res.send(body));
+  }).on('error', (err) => {
+    console.error('Wiki proxy error:', err);
+    res.status(500).send('Proxy error');
+  });
+});
+
+// ─── Race Challenges ──────────────────────────────────────────────────────────
+const { RACE_CHALLENGES } = require('./RaceChallenges');
+
 app.get('/api/challenges', (req, res) => {
   res.json(RACE_CHALLENGES.map(c => ({ start: c.start, target: c.target })));
 });
@@ -122,7 +133,7 @@ io.on('connection', (socket) => {
       target: null, targetUrl: null,
       startArticle: null, startUrl: null,
       startTime: null, gameTimer: null,
-      timeLimit: 999999, // infinite — no time limit
+      timeLimit: 999999, // infinite
     };
     room.players.set(socket.id, {
       id: socket.id, name: playerName.trim().slice(0, 20),
@@ -193,16 +204,15 @@ io.on('connection', (socket) => {
       timeLimit:    room.timeLimit,
     });
 
+    // Timer still ticks (used for finish time tracking) but client ignores display
     room.gameTimer = setInterval(() => {
       const remaining = room.timeLimit - Math.floor((Date.now() - room.startTime) / 1000);
       io.to(code).emit('game:tick', { remaining });
-      if (remaining <= 0) endGame(room);
     }, 1000);
 
     console.log(`[GAME] ${code}: started — ${challenge.start} → ${challenge.target}`);
   });
 
-  // ── Player navigates to a new article ──
   socket.on('game:navigate', ({ article, url }) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
@@ -215,14 +225,13 @@ io.on('connection', (socket) => {
     player.articlePath.push(article);
     player.clicks++;
 
-    // Normalise both sides for comparison
+    // Normalise for win check
     const norm = s => decodeURIComponent(s).toLowerCase().replace(/_/g, ' ').trim();
     const targetSlug   = norm(room.targetUrl.replace('/wiki/', ''));
     const incomingSlug = norm((url.split('/wiki/')[1] || article));
     const targetName   = norm(room.target);
 
     if (incomingSlug === targetSlug || incomingSlug === targetName) {
-      // ── FIRST TO FINISH WINS — end game immediately ──
       player.finished   = true;
       player.finishTime = Date.now() - room.startTime;
       player.rank       = 1;
@@ -237,7 +246,7 @@ io.on('connection', (socket) => {
         type: 'success',
       });
 
-      endGame(room); // end immediately for everyone
+      endGame(room);
       return;
     }
 
@@ -268,7 +277,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Game Logic ───────────────────────────────────────────────────────────────
 function endGame(room) {
   if (room.status !== 'playing') return;
   if (room.gameTimer) clearInterval(room.gameTimer);
