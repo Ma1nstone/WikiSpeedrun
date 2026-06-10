@@ -1,13 +1,9 @@
 /**
  * SpeedWiki — client.js
  *
- * Rules (per official WikiRace / The Wiki Game standard):
- *  - Navigation only through body text links (main content area only)
- *  - No search bar (30s Chinese punishment)
- *  - No back button (forces creative paths — standard rule)
- *  - No sidebar, navbox, infobox, category, or footer links
- *  - Timer pauses during page loads (fair competition)
- *  - First player to reach target wins — game ends for everyone
+ * Wikipedia rendering: uses w/api.php?action=parse&origin=* 
+ * (CORS-safe, no proxy needed — same approach as WikipediaRaces.com)
+ * Renders into a div with innerHTML — no iframe needed.
  */
 
 const socket = io();
@@ -17,16 +13,43 @@ let roomCode      = null;
 let isHost        = false;
 let playerName    = "";
 let clickCount    = 0;
-let myPath        = [];       // [{ title, url }, ...]
+let myPath        = [];
 let joining       = false;
 let gameTarget    = null;
 let gameTargetUrl = null;
 let punished      = false;
 let punishTimer   = null;
-let pageLoading   = false;    // true while article is fetching (timer pauses)
-let elapsedMs     = 0;        // fair elapsed time (excludes load time)
+let pageLoading   = false;
+let elapsedMs     = 0;
 let timerInterval = null;
 let lastTickTime  = null;
+
+// Namespace prefixes to block (from WikipediaRaces.com source)
+const BLOCKED_PREFIXES = [
+  "Wikipedia:", "Help:", "Template:", "Category:", "File:",
+  "Special:", "Talk:", "User:", "Portal:", "Draft:", "Module:", "MediaWiki:"
+];
+
+// ─── Wikipedia API ────────────────────────────────────────────────────────────
+const WIKI_API = "https://en.wikipedia.org/w/api.php";
+const WIKI_API_ZH = "https://zh.wikipedia.org/w/api.php";
+
+async function fetchWikiPage(title, lang = "en") {
+  const api = lang === "zh" ? WIKI_API_ZH : WIKI_API;
+  const params = new URLSearchParams({
+    action: "parse",
+    page: title,
+    format: "json",
+    prop: "text|displaytitle",
+    disableeditsection: "true",
+    redirects: "true",
+    origin: "*",
+  });
+  const res = await fetch(`${api}?${params}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.info || "Wikipedia API error");
+  return { title: data.parse.title, html: data.parse.text["*"] };
+}
 
 // ─── Online count ─────────────────────────────────────────────────────────────
 socket.on("server:online", ({ count }) => {
@@ -134,8 +157,13 @@ window.addEventListener("DOMContentLoaded", () => {
     roomCode = null; isHost = false;
   };
 
-  document.getElementById("btn-play-again").onclick = () => socket.emit("game:playAgain");
+  // Wiki content click handler — single delegated listener on the container
+  const wikiContent = document.getElementById("wiki-content");
+  if (wikiContent) {
+    wikiContent.addEventListener("click", handleWikiClick);
+  }
 
+  document.getElementById("btn-play-again").onclick = () => socket.emit("game:playAgain");
   document.getElementById("btn-gameover-leave").onclick = () => {
     socket.emit("lobby:leave");
     document.getElementById("overlay-gameover").classList.add("hidden");
@@ -211,13 +239,9 @@ socket.on("room:state", (room) => {
     const startBtn   = document.getElementById("btn-start-game");
     const waitingMsg = document.getElementById("lobby-waiting-msg");
     if (socket.id === room.host) {
-      startBtn.classList.remove("hidden");
-      waitingMsg.classList.add("hidden");
-      isHost = true;
+      startBtn.classList.remove("hidden"); waitingMsg.classList.add("hidden"); isHost = true;
     } else {
-      startBtn.classList.add("hidden");
-      waitingMsg.classList.remove("hidden");
-      isHost = false;
+      startBtn.classList.add("hidden"); waitingMsg.classList.remove("hidden"); isHost = false;
     }
   }
   const gameScreen = document.getElementById("screen-game");
@@ -238,9 +262,7 @@ function updateScoreboard(players) {
   });
   sorted.forEach((p, i) => {
     const li = document.createElement("li");
-    li.className = "score-item" +
-      (p.finished ? " score-finished" : "") +
-      (p.id === socket.id ? " score-you" : "");
+    li.className = "score-item" + (p.finished ? " score-finished" : "") + (p.id === socket.id ? " score-you" : "");
     const rank = document.createElement("span");
     rank.className = "score-rank";
     rank.textContent = i + 1;
@@ -256,8 +278,7 @@ function updateScoreboard(players) {
     const articleEl = document.createElement("div");
     articleEl.className = "score-article";
     articleEl.textContent = p.finished ? "✓ Finished!" : (p.currentArticle || "—");
-    info.appendChild(nameEl);
-    info.appendChild(articleEl);
+    info.appendChild(nameEl); info.appendChild(articleEl);
     const clicks = document.createElement("span");
     clicks.className = p.finished ? "score-done-badge" : "score-clicks";
     clicks.textContent = p.finished ? "🏆" : `${p.clicks}`;
@@ -274,38 +295,20 @@ function startFairTimer() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     if (!pageLoading) {
-      const now = Date.now();
-      elapsedMs += now - lastTickTime;
+      elapsedMs += Date.now() - lastTickTime;
       updateTimerDisplay();
     }
     lastTickTime = Date.now();
   }, 100);
 }
-
-function pauseTimer()  { pageLoading = true;  showLoadingIndicator(true);  }
-function resumeTimer() { pageLoading = false; showLoadingIndicator(false); lastTickTime = Date.now(); }
-
-function stopTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = null;
-}
-
+function pauseTimer()  { pageLoading = true;  document.getElementById("game-timer")?.classList.add("loading"); }
+function resumeTimer() { pageLoading = false; document.getElementById("game-timer")?.classList.remove("loading"); lastTickTime = Date.now(); }
+function stopTimer()   { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
 function updateTimerDisplay() {
-  const totalSec = Math.floor(elapsedMs / 1000);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
+  const s = Math.floor(elapsedMs / 1000);
   const el = document.getElementById("timer-value");
-  if (el) el.textContent = `${min}:${sec.toString().padStart(2, "0")}`;
+  if (el) el.textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
 }
-
-function showLoadingIndicator(loading) {
-  const el = document.getElementById("game-timer");
-  if (!el) return;
-  if (loading) el.classList.add("loading");
-  else         el.classList.remove("loading");
-}
-
-// Ignore server ticks — we use our own fair client timer
 socket.on("game:tick", () => {});
 
 // ─── Game starting ────────────────────────────────────────────────────────────
@@ -326,11 +329,8 @@ socket.on("game:starting", (data) => {
 
   const overlay  = document.getElementById("overlay-countdown");
   const numEl    = document.getElementById("countdown-number");
-  const startEl  = document.getElementById("countdown-start");
-  const targetEl = document.getElementById("countdown-target");
-
-  startEl.textContent  = data.startArticle;
-  targetEl.textContent = data.target;
+  document.getElementById("countdown-start").textContent  = data.startArticle;
+  document.getElementById("countdown-target").textContent = data.target;
   overlay.classList.remove("hidden");
   showScreen("game");
 
@@ -341,10 +341,11 @@ socket.on("game:starting", (data) => {
     if (count <= 0) {
       clearInterval(tick);
       overlay.classList.add("hidden");
+      const startTitle = data.startUrl.split("/wiki/")[1];
       myPath = [{ title: data.startArticle, url: data.startUrl }];
       updatePathTrail();
       startFairTimer();
-      loadWikipedia(data.startUrl, data.startArticle);
+      loadWikiPage(startTitle, data.startArticle);
     } else {
       numEl.textContent = count;
       numEl.style.animation = "none";
@@ -354,235 +355,91 @@ socket.on("game:starting", (data) => {
   }, 1000);
 });
 
-// ─── Wikipedia loader (server-proxied, fair timer, CORS-safe) ─────────────────
-async function loadWikipedia(url, articleTitle) {
-  pauseTimer(); // pause fair timer during load
+// ─── Load Wikipedia page via API (CORS-safe, no proxy) ───────────────────────
+async function loadWikiPage(title, displayTitle) {
+  pauseTimer();
 
-  const loading = document.getElementById("wiki-loading");
-  loading.classList.remove("hidden");
+  const wikiArea   = document.getElementById("wiki-content");
+  const titleEl    = document.getElementById("wiki-page-title");
+  const loadingEl  = document.getElementById("wiki-loading");
+  const scrollArea = document.getElementById("wiki-scroll-area");
 
-  const rawTitle = decodeURIComponent((url.split("/wiki/")[1] || "").split("#")[0]);
+  if (loadingEl)  loadingEl.classList.remove("hidden");
+  if (wikiArea)   wikiArea.innerHTML = "";
+  if (scrollArea) scrollArea.scrollTop = 0;
+
   const lang = punished ? "zh" : "en";
-  const proxyUrl = `/wiki-proxy?title=${encodeURIComponent(rawTitle)}&lang=${lang}`;
 
   try {
-    const res = await fetch(proxyUrl);
-    if (!res.ok) throw new Error("proxy failed");
-    const html = await res.text();
+    const { title: resolvedTitle, html } = await fetchWikiPage(title, lang);
 
-    const frame = document.getElementById("wiki-frame");
+    if (titleEl) titleEl.textContent = displayTitle || resolvedTitle;
+    if (wikiArea) wikiArea.innerHTML = html;
 
-    // CSS injected into the iframe:
-    // - Loads real Wikipedia stylesheet
-    // - Hides ONLY chrome (search, nav, footer, edit links, categories)
-    // - Dims non-body links (sidebars, navboxes, infoboxes) — body links stay full colour
-    // - Highlights valid clickable body links
-    const injectCSS = `
-      <link rel="stylesheet" href="https://${lang}.wikipedia.org/w/load.php?modules=mediawiki.skinning.content.parsoid|mediawiki.skinning.interface|skins.vector.styles|ext.cite.styles&only=styles&skin=vector">
-      <style>
-        html, body { margin: 0; padding: 0; background: #fff; }
-        body { padding: 16px 28px 40px; font-family: -apple-system, 'Linux Libertine', Georgia, serif; font-size: 14px; color: #202122; line-height: 1.65; }
-
-        /* ── Hide all Wikipedia chrome ── */
-        #mw-navigation, #mw-head, #mw-head-base, #mw-panel,
-        #footer, #footer-icons, #footer-info, #footer-places,
-        .mw-portlet, .vector-header, .vector-page-toolbar,
-        .vector-column-start, .vector-sidebar,
-        .mw-table-of-contents-container, #toc, .toc,
-        #p-search, .cdx-search-input, .vector-search-box, #searchform,
-        #searchInput, .searchButton, .search-toggle,
-        .mw-editsection, #ca-edit, #ca-ve-edit, .editlink,
-        .catlinks, .sistersitebox, .mw-jump-link,
-        .mw-indicators, #siteSub, #contentSub,
-        #coordinates, .geo-nondefault, .geo-multi-punct,
-        .noprint, .printfooter, #p-lang-btn,
-        .mw-portlet-lang, #interwiki-links,
-        #p-tb, #p-coll-print_export, #p-wikibase-otherprojects,
-        .wb-langlinks-link, .interlanguage-link,
-        .refbegin, .reflist        { display: none !important; }
-
-        /* ── Navboxes, infoboxes, sidebars: dim links inside them ── */
-        .navbox a, .navbox-inner a,
-        .infobox a, .infobox_v3 a,
-        .sidebar a, .vertical-navbox a,
-        .hatnote a, .hatnote,
-        table.wikitable a,
-        .mw-content-ltr > table a { opacity: 0.45; pointer-events: none; cursor: default; }
-
-        /* ── Category links at bottom: blocked ── */
-        .mw-normal-catlinks a,
-        .mw-hidden-catlinks a     { pointer-events: none; opacity: 0.3; cursor: default; }
-
-        /* ── External links: blocked ── */
-        a[href^="http"], a[href^="//"],
-        a[href*="action=edit"],
-        a[href*="redlink=1"]      { pointer-events: none; opacity: 0.35; cursor: default; text-decoration: none; }
-
-        /* ── Namespace links: blocked ── */
-        a[href*="Special:"], a[href*="Wikipedia:"], a[href*="Help:"],
-        a[href*="Talk:"], a[href*="User:"], a[href*="File:"],
-        a[href*="Category:"], a[href*="Portal:"],
-        a[href*="Template:"], a[href*="Draft:"],
-        a[href*="#cite_"], a[href*="#ref_"]
-                                  { pointer-events: none; opacity: 0.35; cursor: default; }
-
-        /* ── Valid body article links: full Wikipedia blue ── */
-        #mw-content-text a[href^="/wiki/"]:not([href*=":"]):not([href*="redlink"]) {
-          color: #3366CC;
-          text-decoration: none;
-          cursor: pointer;
-        }
-        #mw-content-text a[href^="/wiki/"]:not([href*=":"]):not([href*="redlink"]):hover {
-          text-decoration: underline;
-          color: #0645ad;
-        }
-
-        /* ── Images ── */
-        img { max-width: 100%; height: auto; }
-        figure, .thumb { margin: 0 0 12px 0; }
-        .thumbinner { border: 1px solid #EAECF0; background: #f8f9fa; padding: 4px; }
-
-        /* ── Typography ── */
-        h1 { font-size: 1.95rem; font-weight: normal; border-bottom: 1px solid #EAECF0; padding-bottom: 4px; margin-bottom: 12px; font-family: 'Linux Libertine', Georgia, serif; }
-        h2 { font-size: 1.5rem; font-weight: normal; border-bottom: 1px solid #EAECF0; margin-top: 20px; }
-        h3 { font-size: 1.17rem; margin-top: 16px; }
-        p  { margin-bottom: 10px; }
-        sup { font-size: .75em; }
-        .infobox, .infobox_v3 { float: right; margin: 0 0 16px 20px; max-width: 280px; font-size: .85em; border: 1px solid #EAECF0; }
-        table.wikitable { border-collapse: collapse; margin: 12px 0; font-size: .9em; }
-        table.wikitable th, table.wikitable td { border: 1px solid #EAECF0; padding: 5px 8px; }
-        table.wikitable th { background: #eaecf0; }
-        blockquote { border-left: 3px solid #EAECF0; margin-left: 0; padding-left: 12px; color: #54595D; }
-      </style>
-    `;
-
-    const base = `<base href="https://${lang}.wikipedia.org/wiki/">`;
-    frame.srcdoc = `<!DOCTYPE html><html><head>${base}${injectCSS}</head><body>${html}</body></html>`;
-
-    const displayTitle = articleTitle || rawTitle.replace(/_/g, " ");
-    document.getElementById("game-current-article").textContent = displayTitle;
-
-    enableLinkTracking(frame);
-    // resumeTimer() called inside frame.onload via enableLinkTracking
+    document.getElementById("game-current-article").textContent = displayTitle || resolvedTitle;
   } catch (err) {
-    resumeTimer();
-    loading.classList.add("hidden");
-    showToast("Failed to load article — try another link", "error");
+    if (wikiArea) wikiArea.innerHTML = `<p style="color:#d33;padding:20px">Failed to load article. Try clicking another link.</p>`;
     console.error(err);
+  } finally {
+    if (loadingEl) loadingEl.classList.add("hidden");
+    resumeTimer();
   }
 }
 
-// ─── Link tracking (body-text links only) ────────────────────────────────────
-function enableLinkTracking(frame) {
-  frame.onload = () => {
-    resumeTimer(); // page loaded — resume fair timer
-    document.getElementById("wiki-loading").classList.add("hidden");
+// ─── Wiki click handler (delegated on #wiki-content) ─────────────────────────
+function handleWikiClick(e) {
+  const a = e.target.closest("a");
+  if (!a) return;
 
-    try {
-      const doc = frame.contentDocument || frame.contentWindow.document;
+  e.preventDefault();
+  e.stopPropagation();
 
-      // ── Search punishment ──
-      doc.addEventListener("submit", (e) => {
-        if (e.target?.id === "searchform" || e.target?.action?.includes("search")) {
-          e.preventDefault();
-          triggerPunishment();
-        }
-      });
+  const href = a.getAttribute("href");
+  if (!href) return;
 
-      doc.addEventListener("click", (e) => {
-        // Search button click = punishment
-        if (e.target.closest?.("#searchform") ||
-            e.target.closest?.(".cdx-search-input") ||
-            e.target.closest?.(".vector-search-box") ||
-            e.target.classList?.contains("searchButton")) {
-          e.preventDefault();
-          triggerPunishment();
-          return;
-        }
+  // Must be a /wiki/ link
+  const match = href.match(/\/wiki\/([^#?]+)/);
+  if (!match) return;
 
-        const a = e.target.closest("a");
-        if (!a) return;
+  const rawTitle = decodeURIComponent(match[1]);
 
-        const href = a.getAttribute("href");
-        if (!href || !href.startsWith("/wiki/")) { e.preventDefault(); return; }
+  // Block namespace links
+  if (BLOCKED_PREFIXES.some(p => rawTitle.startsWith(p))) return;
 
-        // ── Must be inside main content text (body links only) ──
-        const contentArea = doc.getElementById("mw-content-text") ||
-                            doc.querySelector(".mw-parser-output") ||
-                            doc.querySelector("#bodyContent");
+  // Block red links (non-existent articles)
+  if (a.classList.contains("new") || href.includes("redlink=1") || href.includes("action=edit")) return;
 
-        if (contentArea && !contentArea.contains(a)) {
-          e.preventDefault();
-          showToast("Only body text links allowed!", "warning");
-          return;
-        }
+  // Block external links
+  if (a.classList.contains("external") || href.startsWith("http") || href.startsWith("//")) return;
 
-        // Block namespace links
-        const blocked = ["Special:", "Wikipedia:", "Help:", "Talk:", "User:",
-                         "File:", "Category:", "Portal:", "Template:", "Draft:"];
-        const articlePart = decodeURIComponent((href.split("/wiki/")[1] || "").split("#")[0]);
-        if (!articlePart || blocked.some(ns => articlePart.startsWith(ns))) {
-          e.preventDefault(); return;
-        }
+  // Valid click — count it
+  clickCount++;
+  document.getElementById("game-click-count").textContent = clickCount;
 
-        // Block red links (non-existent articles)
-        if (href.includes("redlink=1") || href.includes("action=edit")) {
-          e.preventDefault(); return;
-        }
+  const displayName = rawTitle.replace(/_/g, " ");
+  const cleanUrl    = "/wiki/" + match[1];
 
-        // Block navbox / infobox / table links
-        const blockedContainers = [
-          ".navbox", ".navbox-inner", ".infobox", ".infobox_v3",
-          ".sidebar", ".vertical-navbox", ".hatnote",
-          ".mw-normal-catlinks", ".mw-hidden-catlinks",
-          "table.wikitable", ".reflist", ".refbegin",
-        ];
-        if (blockedContainers.some(sel => a.closest(sel))) {
-          e.preventDefault();
-          showToast("Only body text links — not tables or navboxes!", "warning");
-          return;
-        }
+  document.getElementById("game-current-article").textContent = displayName;
 
-        e.preventDefault();
+  myPath.push({ title: displayName, url: cleanUrl });
+  updatePathTrail();
 
-        // ── Valid click ──
-        clickCount++;
-        document.getElementById("game-click-count").textContent = clickCount;
-
-        const displayName = articlePart.replace(/_/g, " ");
-        document.getElementById("game-current-article").textContent = displayName;
-
-        const cleanHref = "/wiki/" + articlePart;
-        myPath.push({ title: displayName, url: cleanHref });
-        updatePathTrail();
-
-        socket.emit("game:navigate", { article: displayName, url: cleanHref });
-        loadWikipedia(cleanHref, displayName);
-      });
-
-    } catch (err) {
-      console.warn("Link tracking error:", err);
-    }
-  };
+  socket.emit("game:navigate", { article: displayName, url: cleanUrl });
+  loadWikiPage(match[1], displayName);
 }
 
-// ─── Search punishment: 30s Chinese Wikipedia ────────────────────────────────
+// ─── Search punishment ────────────────────────────────────────────────────────
 function triggerPunishment() {
   if (punished) return;
   punished = true;
-
   showToast("⚠️ No searching! 30 seconds of Chinese Wikipedia!", "error");
-
   const banner  = document.getElementById("punishment-banner");
   const timerEl = document.getElementById("punishment-timer");
   banner.classList.remove("hidden");
-
   let remaining = 30;
   timerEl.textContent = remaining;
-
   const cur = myPath.length ? myPath[myPath.length - 1] : null;
-  if (cur) loadWikipedia(cur.url, cur.title);
-
+  if (cur) loadWikiPage(cur.url.split("/wiki/")[1], cur.title);
   punishTimer = setInterval(() => {
     remaining--;
     timerEl.textContent = remaining;
@@ -592,7 +449,7 @@ function triggerPunishment() {
       banner.classList.add("hidden");
       showToast("Punishment over! Back to English.", "success");
       const c = myPath.length ? myPath[myPath.length - 1] : null;
-      if (c) loadWikipedia(c.url, c.title);
+      if (c) loadWikiPage(c.url.split("/wiki/")[1], c.title);
     }
   }, 1000);
 }
@@ -621,14 +478,12 @@ function updatePathTrail() {
 socket.on("game:won", ({ clicks, time }) => {
   stopTimer();
   const s = Math.floor(time / 1000);
-  const timeStr = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
-  showToast(`🏆 You won in ${clicks} clicks (${timeStr})!`, "success");
+  showToast(`🏆 You won in ${clicks} clicks (${Math.floor(s/60)}:${(s%60).toString().padStart(2,"00")})!`, "success");
 });
 
 // ─── Game over ────────────────────────────────────────────────────────────────
 socket.on("game:over", ({ leaderboard, winner }) => {
   stopTimer();
-
   const overlay = document.getElementById("overlay-gameover");
   const list    = document.getElementById("gameover-leaderboard");
   const title   = document.getElementById("gameover-title");
@@ -639,46 +494,43 @@ socket.on("game:over", ({ leaderboard, winner }) => {
   list.innerHTML = "";
   overlay.classList.remove("hidden");
 
-  const me    = leaderboard.find(p => p.id === socket.id);
-  const iWon  = me && me.finished && me.rank === 1;
-
+  const me   = leaderboard.find(p => p.id === socket.id);
+  const iWon = me && me.finished && me.rank === 1;
   result.textContent = iWon ? "🏆" : "😔";
   title.textContent  = iWon ? "You Won!" : `${winner?.name || "Someone"} Won!`;
 
-  // Show winner's path
-  if (winner && winner.articlePath?.length > 0) {
+  if (winner?.articlePath?.length > 0) {
     pathDiv.classList.remove("hidden");
     pathDiv.innerHTML = `
       <div class="winner-path-label">🏆 ${winner.name}'s winning path (${winner.clicks} clicks):</div>
       <div class="winner-path-pills">
         ${winner.articlePath.map((a, i) =>
-          `<span class="winner-pill${i === winner.articlePath.length - 1 ? ' winner-pill-last' : ''}">${a}</span>` +
-          (i < winner.articlePath.length - 1 ? '<span class="winner-arrow">›</span>' : '')
+          `<span class="winner-pill${i === winner.articlePath.length-1 ? ' winner-pill-last' : ''}">${a}</span>` +
+          (i < winner.articlePath.length-1 ? '<span class="winner-arrow">›</span>' : '')
         ).join('')}
       </div>`;
   } else {
     pathDiv.classList.add("hidden");
   }
 
-  const rankEmojis = ["🥇", "🥈", "🥉"];
+  const rankEmojis = ["🥇","🥈","🥉"];
   leaderboard.forEach((p, i) => {
     const li = document.createElement("li");
     li.className = "gameover-item" + (i < 3 ? ` podium-${i+1}` : "");
-
     const rankEl = document.createElement("span");
     rankEl.className = "gameover-rank-emoji";
     rankEl.textContent = rankEmojis[i] || `#${i+1}`;
-
     const nameEl = document.createElement("span");
     nameEl.className = "gameover-player-name";
     nameEl.textContent = p.name + (p.id === socket.id ? " (you)" : "");
-
     const statsEl = document.createElement("span");
     statsEl.className = p.finished ? "gameover-player-stats" : "gameover-dnf";
-    statsEl.textContent = p.finished
-      ? (() => { const s = Math.floor(p.finishTime/1000); return `${p.clicks} clicks · ${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`; })()
-      : `${p.clicks} clicks — Did not finish`;
-
+    if (p.finished) {
+      const s = Math.floor(p.finishTime/1000);
+      statsEl.textContent = `${p.clicks} clicks · ${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
+    } else {
+      statsEl.textContent = `${p.clicks} clicks — Did not finish`;
+    }
     li.appendChild(rankEl); li.appendChild(nameEl); li.appendChild(statsEl);
     list.appendChild(li);
   });
@@ -697,10 +549,7 @@ socket.on("game:reset", () => {
 });
 
 // ─── Avatar colors ────────────────────────────────────────────────────────────
-const AVATAR_COLORS = [
-  "#3366CC","#2E7D32","#6A1B9A","#C62828","#AD6800",
-  "#00695C","#1565C0","#4527A0","#558B2F","#BF360C"
-];
+const AVATAR_COLORS = ["#3366CC","#2E7D32","#6A1B9A","#C62828","#AD6800","#00695C","#1565C0","#4527A0","#558B2F","#BF360C"];
 function avatarColor(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
