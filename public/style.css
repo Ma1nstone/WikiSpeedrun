@@ -1135,3 +1135,14 @@ input { font-family: inherit; }
   color: var(--ink-muted);
   font-size: .75rem;
 }
+
+/* ── Timer loading state (paused during page load) ── */
+.timer-display.loading {
+  background: var(--amber-light);
+  color: var(--amber);
+  border-color: #f9d89a;
+}
+.timer-display.loading::after {
+  content: " ⏸";
+  font-size: .7em;
+}

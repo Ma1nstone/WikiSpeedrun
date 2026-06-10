@@ -50,7 +50,15 @@ app.get('/wiki-proxy', (req, res) => {
 
     let body = '';
     wikiRes.on('data', chunk => body += chunk);
-    wikiRes.on('end', () => res.send(body));
+    wikiRes.on('end', () => {
+      // Strip preload/prefetch tags — cause browser warnings when unused
+      body = body.replace(/<link[^>]+rel=["']?(preload|prefetch|dns-prefetch|preconnect)["']?[^>]*>/gi, '');
+      // Strip inline scripts — not needed, avoids CSP issues
+      body = body.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+      // Strip Wikipedia's own stylesheets — we inject our own clean version
+      body = body.replace(/<link[^>]+rel=["']stylesheet["'][^>]*>/gi, '');
+      res.send(body);
+    });
   }).on('error', (err) => {
     console.error('Wiki proxy error:', err);
     res.status(500).send('Proxy error');

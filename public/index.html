@@ -92,10 +92,11 @@
       <ol class="how-list">
         <li><strong>Create or join</strong> a lobby with friends using a room code.</li>
         <li>The host <strong>starts the game</strong>. Everyone gets the same start &amp; target articles.</li>
-        <li><strong>Click only Wikipedia links</strong> to navigate from the start article to the target.</li>
+        <li><strong>Only body text links</strong> count — no sidebars, navboxes, infoboxes, or category links.</li>
         <li>The <strong>first player</strong> to reach the target article wins instantly.</li>
-        <li>There's no time limit — race as long as it takes!</li>
-        <li>⚠️ Using the Wikipedia search bar gives you a <strong>30-second Chinese punishment</strong>!</li>
+        <li><strong>No back button</strong> — find a new path forward!</li>
+        <li>⚠️ Using the <strong>search bar</strong> switches Wikipedia to Chinese for 30 seconds!</li>
+        <li>The timer <strong>pauses during page loads</strong> for fair competition.</li>
       </ol>
       <div class="modal-actions">
         <button id="btn-how-close" class="btn btn-primary">Got it</button>
@@ -169,11 +170,11 @@
         </div>
       </div>
       <div class="topbar-right">
-        <!-- Back button -->
-        <button id="btn-back" class="btn btn-back" title="Go back one article">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          Back
-        </button>
+        <!-- Fair elapsed timer — pauses during page loads -->
+        <div class="timer-display" id="game-timer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="timer-value">0:00</span>
+        </div>
         <div class="topbar-clicks">
           <span id="game-click-count">0</span>
           <span class="topbar-label">clicks</span>
