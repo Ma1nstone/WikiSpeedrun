@@ -1,29 +1,25 @@
 /**
  * WikiRace — client.js
- * Fixed bugs:
- *  1. Online count IDs corrected (home-online-count, lobby-online-count)
- *  2. Join modal now shows/hides the room-code input field
- *  3. btn-start-game handler moved inside DOMContentLoaded
- *  4. room:state safely skips lobby DOM updates when not on lobby screen
- *  5. Full game-over leaderboard with proper styling
- *  6. Path trail updates on each navigation
- *  7. Toast system wired up
- *  8. Play Again + Leave buttons wired up
- *  9. Copy room code button wired up
- * 10. Countdown overlay before game starts
+ * New features:
+ *  - Back button: go back through article history infinitely
+ *  - Wikipedia rendered inside site via REST API (no search bar, clean view)
+ *  - First to finish wins logic
+ *  - RACE_CHALLENGES fetched from /api/challenges and shown on home screen
  */
 
 const socket = io();
 
 // ─── State ────────────────────────────────────────────────────────────────────
-let roomCode   = null;
-let isHost     = false;
-let playerName = "";
-let clickCount = 0;
-let myPath     = [];
-let joining    = false;
+let roomCode    = null;
+let isHost      = false;
+let playerName  = "";
+let clickCount  = 0;
+let myPath      = [];       // array of { title, url } for back navigation
+let joining     = false;
+let gameTarget  = null;     // target article name for current game
+let gameTargetUrl = null;
 
-// ─── Online count (fix: update BOTH elements by id) ──────────────────────────
+// ─── Online count ─────────────────────────────────────────────────────────────
 socket.on("server:online", ({ count }) => {
   const home  = document.getElementById("home-online-count");
   const lobby = document.getElementById("lobby-online-count");
@@ -59,6 +55,22 @@ function showToast(msg, type = "info") {
 
 socket.on("toast", ({ msg, type }) => showToast(msg, type));
 
+// ─── Fetch and display challenge list on home screen ─────────────────────────
+async function loadChallengePreview() {
+  try {
+    const res = await fetch('/api/challenges');
+    const challenges = await res.json();
+    // Pick a random one to show as preview
+    const c = challenges[Math.floor(Math.random() * challenges.length)];
+    const startEl  = document.getElementById("preview-start");
+    const targetEl = document.getElementById("preview-target-name");
+    if (startEl)  startEl.textContent  = c.start;
+    if (targetEl) targetEl.textContent = c.target;
+  } catch (e) {
+    // silently fail — preview is decorative
+  }
+}
+
 // ─── Modal: open with correct mode ───────────────────────────────────────────
 function openNameModal(isJoin) {
   joining = isJoin;
@@ -86,6 +98,8 @@ function openNameModal(isJoin) {
 // ─── DOM Ready ────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
 
+  loadChallengePreview();
+
   // Home buttons
   document.getElementById("btn-create").onclick      = () => openNameModal(false);
   document.getElementById("btn-join-open").onclick   = () => openNameModal(true);
@@ -98,61 +112,51 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-modal-cancel").onclick = () =>
     document.getElementById("modal-name").classList.add("hidden");
 
-  // Modal confirm — validate then create or join
+  // Modal confirm
   document.getElementById("btn-modal-confirm").onclick = confirmModal;
   document.getElementById("input-name").addEventListener("keydown", e => {
     if (e.key === "Enter") confirmModal();
   });
   const codeInput = document.getElementById("input-room-code");
   if (codeInput) {
-    codeInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") confirmModal();
-    });
-    // Auto-uppercase room code as typed
-    codeInput.addEventListener("input", () => {
-      codeInput.value = codeInput.value.toUpperCase();
-    });
+    codeInput.addEventListener("keydown", e => { if (e.key === "Enter") confirmModal(); });
+    codeInput.addEventListener("input", () => { codeInput.value = codeInput.value.toUpperCase(); });
   }
 
-  // Copy room code button
+  // Copy room code
   document.getElementById("btn-copy-code").onclick = () => {
     const code = document.getElementById("lobby-code-value").textContent;
     navigator.clipboard.writeText(code).then(() => showToast("Room code copied!", "success"));
   };
 
-  // Start game (host only) — fixed: now inside DOMContentLoaded
-  document.getElementById("btn-start-game").onclick = () => {
-    socket.emit("game:start");
-  };
+  // Start game
+  document.getElementById("btn-start-game").onclick = () => socket.emit("game:start");
 
   // Leave lobby
   document.getElementById("btn-leave-lobby").onclick = () => {
     socket.emit("lobby:leave");
     showScreen("home");
-    roomCode = null;
-    isHost   = false;
+    roomCode = null; isHost = false;
   };
 
-  // Game over: Play Again (host)
-  document.getElementById("btn-play-again").onclick = () => {
-    socket.emit("game:playAgain");
-  };
+  // Back button
+  document.getElementById("btn-back").onclick = () => goBack();
 
-  // Game over: Leave
+  // Play Again
+  document.getElementById("btn-play-again").onclick = () => socket.emit("game:playAgain");
+
+  // Game over Leave
   document.getElementById("btn-gameover-leave").onclick = () => {
     socket.emit("lobby:leave");
     document.getElementById("overlay-gameover").classList.add("hidden");
     showScreen("home");
-    roomCode = null;
-    isHost   = false;
+    roomCode = null; isHost = false;
   };
-
 });
 
 function confirmModal() {
   playerName = document.getElementById("input-name").value.trim();
   if (!playerName) { showToast("Please enter your name", "error"); return; }
-
   if (joining) {
     const codeEl = document.getElementById("input-room-code");
     const code = (codeEl ? codeEl.value : "").trim().toUpperCase();
@@ -165,29 +169,26 @@ function confirmModal() {
   }
 }
 
-// ─── Lobby system ─────────────────────────────────────────────────────────────
+// ─── Lobby ────────────────────────────────────────────────────────────────────
 function createLobby() { socket.emit("lobby:create", { playerName }); }
 function joinLobby(code) { socket.emit("lobby:join", { roomCode: code, playerName }); }
 
 socket.on("lobby:created", ({ code }) => {
-  roomCode = code;
-  isHost   = true;
+  roomCode = code; isHost = true;
   document.getElementById("lobby-code-value").textContent = roomCode;
   showScreen("lobby");
 });
 
 socket.on("lobby:joined", ({ code }) => {
-  roomCode = code;
-  isHost   = false;
+  roomCode = code; isHost = false;
   document.getElementById("lobby-code-value").textContent = roomCode;
   showScreen("lobby");
 });
 
 socket.on("error", ({ msg }) => showToast(msg, "error"));
 
-// ─── Room state update ────────────────────────────────────────────────────────
+// ─── Room state ───────────────────────────────────────────────────────────────
 socket.on("room:state", (room) => {
-  // Update lobby player list only if lobby screen is visible
   const lobbyScreen = document.getElementById("screen-lobby");
   if (lobbyScreen && !lobbyScreen.classList.contains("hidden")) {
     const list = document.getElementById("lobby-player-list");
@@ -197,20 +198,15 @@ socket.on("room:state", (room) => {
     room.players.forEach(p => {
       const li = document.createElement("li");
       li.className = "player-list-item";
-
-      // Coloured avatar
       const avatar = document.createElement("div");
       avatar.className = "player-avatar";
       avatar.style.background = avatarColor(p.name);
       avatar.textContent = p.name.charAt(0).toUpperCase();
-
       const nameEl = document.createElement("span");
       nameEl.className = "player-name";
       nameEl.textContent = p.name;
-
       li.appendChild(avatar);
       li.appendChild(nameEl);
-
       if (p.id === room.host) {
         const badge = document.createElement("span");
         badge.className = "badge-host";
@@ -223,13 +219,11 @@ socket.on("room:state", (room) => {
         you.textContent = "You";
         li.appendChild(you);
       }
-
       list.appendChild(li);
     });
 
-    // Show/hide host controls
-    const startBtn    = document.getElementById("btn-start-game");
-    const waitingMsg  = document.getElementById("lobby-waiting-msg");
+    const startBtn   = document.getElementById("btn-start-game");
+    const waitingMsg = document.getElementById("lobby-waiting-msg");
     if (socket.id === room.host) {
       startBtn.classList.remove("hidden");
       waitingMsg.classList.add("hidden");
@@ -241,20 +235,18 @@ socket.on("room:state", (room) => {
     }
   }
 
-  // Keep scoreboard updated during game
   const gameScreen = document.getElementById("screen-game");
   if (gameScreen && !gameScreen.classList.contains("hidden")) {
-    updateScoreboard(room.players, room.host);
+    updateScoreboard(room.players);
   }
 });
 
 // ─── Scoreboard ───────────────────────────────────────────────────────────────
-function updateScoreboard(players, host) {
+function updateScoreboard(players) {
   const list = document.getElementById("game-scoreboard");
   if (!list) return;
   list.innerHTML = "";
 
-  // Sort: finished first (by time), then by clicks desc
   const sorted = [...players].sort((a, b) => {
     if (a.finished && !b.finished) return -1;
     if (!a.finished && b.finished) return 1;
@@ -300,19 +292,22 @@ function updateScoreboard(players, host) {
   });
 }
 
-// ─── Game starting: countdown then load ──────────────────────────────────────
+// ─── Game starting ────────────────────────────────────────────────────────────
 socket.on("game:starting", (data) => {
-  clickCount = 0;
-  myPath     = [];
+  clickCount   = 0;
+  myPath       = [];
+  gameTarget   = data.target;
+  gameTargetUrl = data.targetUrl;
+
   document.getElementById("game-target-name").textContent = data.target;
   document.getElementById("game-click-count").textContent = "0";
   document.getElementById("path-trail").innerHTML = "";
+  updateBackButton();
 
-  // Show countdown overlay
-  const overlay   = document.getElementById("overlay-countdown");
-  const numEl     = document.getElementById("countdown-number");
-  const startEl   = document.getElementById("countdown-start");
-  const targetEl  = document.getElementById("countdown-target");
+  const overlay  = document.getElementById("overlay-countdown");
+  const numEl    = document.getElementById("countdown-number");
+  const startEl  = document.getElementById("countdown-start");
+  const targetEl = document.getElementById("countdown-target");
 
   startEl.textContent  = data.startArticle;
   targetEl.textContent = data.target;
@@ -327,69 +322,135 @@ socket.on("game:starting", (data) => {
     if (count <= 0) {
       clearInterval(tick);
       overlay.classList.add("hidden");
-      loadWikipedia(data.startUrl, data.startArticle);
+      // Load start article — push to history
+      myPath = [{ title: data.startArticle, url: data.startUrl }];
+      updatePathTrail();
+      updateBackButton();
+      loadWikipedia(data.startUrl, data.startArticle, false);
     } else {
       numEl.textContent = count;
       numEl.style.animation = "none";
-      void numEl.offsetWidth; // reflow to restart animation
+      void numEl.offsetWidth;
       numEl.style.animation = "";
     }
   }, 1000);
 });
 
 // ─── Wikipedia loader ─────────────────────────────────────────────────────────
-async function loadWikipedia(url, articleTitle) {
+async function loadWikipedia(url, articleTitle, countAsClick = true) {
   const loading = document.getElementById("wiki-loading");
   loading.classList.remove("hidden");
 
-  const title = url.split("/wiki/")[1];
+  const rawTitle = url.split("/wiki/")[1];
 
   try {
-    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/html/${title}`);
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/html/${rawTitle}`);
     if (!res.ok) throw new Error("Fetch failed");
     const html = await res.text();
 
     const frame = document.getElementById("wiki-frame");
 
-    // Inject CSS to hide Wikipedia chrome and style links
     const injectCSS = `
       <style>
-        body { font-family: -apple-system, 'Linux Libertine', Georgia, serif; padding: 16px 24px; max-width: 960px; margin: 0 auto; }
-        .mw-header, .mw-navigation, #mw-head, #mw-panel, #footer, .navbox,
-        .noprint, .mw-portlet, #siteSub, #contentSub, .mw-indicators,
-        .catlinks, #toc ~ .mw-editsection, .mw-editsection,
-        #coordinates, .sistersitebox { display: none !important; }
-        a[href^="/wiki/"] { color: #3366CC; text-decoration: none; }
+        * { box-sizing: border-box; }
+        body {
+          font-family: -apple-system, 'Linux Libertine', Georgia, serif;
+          padding: 24px 32px;
+          max-width: 980px;
+          margin: 0 auto;
+          color: #202122;
+          line-height: 1.6;
+        }
+        /* Hide all Wikipedia chrome — search bar, nav, footer, edit links */
+        .mw-header, .mw-navigation, #mw-head, #mw-head-base,
+        #mw-panel, #footer, #footer-icons, #footer-info,
+        .navbox, .navbox-styles, .noprint, .mw-portlet,
+        #siteSub, #contentSub, .mw-indicators, .catlinks,
+        .mw-editsection, #coordinates, .sistersitebox,
+        .mw-jump-link, .searchButton, #searchInput,
+        #p-search, .vector-search-box, .cdx-search-input,
+        .mw-wiki-logo, #p-logo, .mw-body-header,
+        .page-actions, .mw-portlet-lang, #p-lang-btn,
+        .vector-page-toolbar, .mw-table-of-contents-container,
+        .toc, #toc, .tocnumber, .mw-content-ltr > .toc,
+        #p-tb, #p-coll-print_export, #p-wikibase-otherprojects,
+        .wb-langlinks-link, .interlanguage-link { display: none !important; }
+
+        /* Style valid wiki links */
+        a[href^="/wiki/"] {
+          color: #3366CC;
+          text-decoration: none;
+          cursor: pointer;
+        }
         a[href^="/wiki/"]:hover { text-decoration: underline; }
-        a[href^="http"], a[href^="//"], a[href^="#cite"], a[href*="Special:"],
-        a[href*="Wikipedia:"], a[href*="Help:"], a[href*="Talk:"],
-        a[href*="User:"], a[href*="File:"], a[href*="Category:"],
-        a[href*="Portal:"], a[href*="Template:"] { pointer-events: none; opacity: 0.5; }
+
+        /* Dim/disable non-article links */
+        a[href^="http"], a[href^="//"],
+        a[href*="#cite_"], a[href*="#ref_"],
+        a[href*="Special:"], a[href*="Wikipedia:"],
+        a[href*="Help:"], a[href*="Talk:"], a[href*="User:"],
+        a[href*="File:"], a[href*="Category:"],
+        a[href*="Portal:"], a[href*="Template:"], a[href*="Draft:"] {
+          pointer-events: none;
+          opacity: 0.4;
+          cursor: default;
+          text-decoration: none;
+        }
+
         img { max-width: 100%; height: auto; }
-        .infobox { float: right; margin: 0 0 16px 24px; max-width: 320px; font-size: .85em; border: 1px solid #EAECF0; border-radius: 6px; padding: 10px; }
-        h1 { font-size: 2rem; border-bottom: 1px solid #EAECF0; padding-bottom: 8px; margin-bottom: 16px; }
-        p { line-height: 1.65; margin-bottom: 12px; }
+        figure { margin: 0 0 16px 0; }
+
+        .infobox, .infobox_v3 {
+          float: right;
+          margin: 0 0 16px 24px;
+          max-width: 300px;
+          font-size: .85em;
+          border: 1px solid #EAECF0;
+          border-radius: 6px;
+          padding: 10px;
+          background: #f8f9fa;
+        }
+        h1 {
+          font-size: 1.9rem;
+          border-bottom: 1px solid #EAECF0;
+          padding-bottom: 8px;
+          margin-bottom: 16px;
+          font-weight: 600;
+        }
+        h2 { font-size: 1.4rem; border-bottom: 1px solid #EAECF0; margin-top: 24px; }
+        h3 { font-size: 1.1rem; margin-top: 16px; }
+        p  { margin-bottom: 12px; }
+        table.wikitable {
+          border-collapse: collapse;
+          margin: 16px 0;
+          font-size: .9em;
+          width: 100%;
+        }
+        table.wikitable th, table.wikitable td {
+          border: 1px solid #EAECF0;
+          padding: 6px 10px;
+        }
+        table.wikitable th { background: #f0f3f9; }
+        blockquote { border-left: 3px solid #EAECF0; padding-left: 12px; color: #54595D; }
+        sup { font-size: .7em; }
       </style>
     `;
 
     frame.srcdoc = `<base href="https://en.wikipedia.org/wiki/">${injectCSS}${html}`;
 
-    const displayTitle = articleTitle ||
-      decodeURIComponent(title.replace(/_/g, " "));
-
+    const displayTitle = articleTitle || decodeURIComponent(rawTitle.replace(/_/g, " "));
     document.getElementById("game-current-article").textContent = displayTitle;
     loading.classList.add("hidden");
 
-    enableLinkTracking(frame);
+    enableLinkTracking(frame, countAsClick);
   } catch (err) {
     loading.classList.add("hidden");
-    showToast("Failed to load article, try another link", "error");
+    showToast("Failed to load article — try a different link", "error");
   }
 }
 
 // ─── Link tracking ────────────────────────────────────────────────────────────
 function enableLinkTracking(frame) {
-  // Use onload so the srcdoc has fully rendered
   frame.onload = () => {
     try {
       const doc = frame.contentDocument || frame.contentWindow.document;
@@ -400,20 +461,15 @@ function enableLinkTracking(frame) {
         const href = a.getAttribute("href");
         if (!href) return;
 
-        // Only allow /wiki/ article links; block everything else
-        if (!href.startsWith("/wiki/")) {
-          e.preventDefault();
-          return;
-        }
+        if (!href.startsWith("/wiki/")) { e.preventDefault(); return; }
 
-        // Block non-article namespaces
         const blocked = ["Special:", "Wikipedia:", "Help:", "Talk:", "User:",
                          "File:", "Category:", "Portal:", "Template:", "Draft:"];
         const articlePart = decodeURIComponent(href.split("/wiki/")[1] || "");
-        if (blocked.some(ns => articlePart.startsWith(ns))) {
-          e.preventDefault();
-          return;
-        }
+        if (blocked.some(ns => articlePart.startsWith(ns))) { e.preventDefault(); return; }
+
+        // Ignore anchor-only links (same page)
+        if (href.startsWith("#")) { e.preventDefault(); return; }
 
         e.preventDefault();
 
@@ -423,21 +479,98 @@ function enableLinkTracking(frame) {
         const displayName = articlePart.replace(/_/g, " ");
         document.getElementById("game-current-article").textContent = displayName;
 
-        // Update path trail
-        myPath.push(displayName);
+        // Push to path history
+        myPath.push({ title: displayName, url: href });
         updatePathTrail();
+        updateBackButton();
 
-        socket.emit("game:navigate", {
-          article: displayName,
-          url: href
-        });
+        socket.emit("game:navigate", { article: displayName, url: href });
 
-        loadWikipedia(href, displayName);
+        loadWikipedia(href, displayName, true);
       });
     } catch (err) {
       console.warn("Link tracking error:", err);
     }
   };
+}
+
+// ─── Back button ─────────────────────────────────────────────────────────────
+function goBack() {
+  if (myPath.length <= 1) return; // can't go back from the start
+
+  // Remove current page
+  myPath.pop();
+
+  const prev = myPath[myPath.length - 1];
+
+  // Undo the click count
+  clickCount = Math.max(0, clickCount - 1);
+  document.getElementById("game-click-count").textContent = clickCount;
+
+  document.getElementById("game-current-article").textContent = prev.title;
+
+  updatePathTrail();
+  updateBackButton();
+
+  // Tell server we went back (navigate to previous article)
+  socket.emit("game:navigate", { article: prev.title, url: prev.url });
+
+  // Load without adding to path (already managed above)
+  loadWikiBack(prev.url, prev.title);
+}
+
+// Load without pushing to myPath (used by back button)
+async function loadWikiBack(url, articleTitle) {
+  const loading = document.getElementById("wiki-loading");
+  loading.classList.remove("hidden");
+  const rawTitle = url.split("/wiki/")[1];
+  try {
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/html/${rawTitle}`);
+    if (!res.ok) throw new Error("Fetch failed");
+    const html = await res.text();
+    const frame = document.getElementById("wiki-frame");
+    const injectCSS = getInjectCSS();
+    frame.srcdoc = `<base href="https://en.wikipedia.org/wiki/">${injectCSS}${html}`;
+    loading.classList.add("hidden");
+    enableLinkTracking(frame);
+  } catch (err) {
+    loading.classList.add("hidden");
+    showToast("Failed to load article", "error");
+  }
+}
+
+function getInjectCSS() {
+  return `<style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system,'Linux Libertine',Georgia,serif; padding: 24px 32px; max-width: 980px; margin: 0 auto; color: #202122; line-height: 1.6; }
+    .mw-header,.mw-navigation,#mw-head,#mw-head-base,#mw-panel,#footer,#footer-icons,#footer-info,.navbox,.navbox-styles,.noprint,.mw-portlet,#siteSub,#contentSub,.mw-indicators,.catlinks,.mw-editsection,#coordinates,.sistersitebox,.mw-jump-link,.searchButton,#searchInput,#p-search,.vector-search-box,.cdx-search-input,.mw-wiki-logo,#p-logo,.mw-body-header,.page-actions,.mw-portlet-lang,#p-lang-btn,.vector-page-toolbar,.mw-table-of-contents-container,.toc,#toc,.tocnumber,.mw-content-ltr>.toc,#p-tb,#p-coll-print_export,#p-wikibase-otherprojects,.wb-langlinks-link,.interlanguage-link { display:none!important; }
+    a[href^="/wiki/"] { color:#3366CC; text-decoration:none; cursor:pointer; }
+    a[href^="/wiki/"]:hover { text-decoration:underline; }
+    a[href^="http"],a[href^="//"],a[href*="#cite_"],a[href*="#ref_"],a[href*="Special:"],a[href*="Wikipedia:"],a[href*="Help:"],a[href*="Talk:"],a[href*="User:"],a[href*="File:"],a[href*="Category:"],a[href*="Portal:"],a[href*="Template:"],a[href*="Draft:"] { pointer-events:none; opacity:0.4; cursor:default; text-decoration:none; }
+    img { max-width:100%; height:auto; }
+    .infobox,.infobox_v3 { float:right; margin:0 0 16px 24px; max-width:300px; font-size:.85em; border:1px solid #EAECF0; border-radius:6px; padding:10px; background:#f8f9fa; }
+    h1 { font-size:1.9rem; border-bottom:1px solid #EAECF0; padding-bottom:8px; margin-bottom:16px; font-weight:600; }
+    h2 { font-size:1.4rem; border-bottom:1px solid #EAECF0; margin-top:24px; }
+    h3 { font-size:1.1rem; margin-top:16px; }
+    p { margin-bottom:12px; }
+    table.wikitable { border-collapse:collapse; margin:16px 0; font-size:.9em; width:100%; }
+    table.wikitable th,table.wikitable td { border:1px solid #EAECF0; padding:6px 10px; }
+    table.wikitable th { background:#f0f3f9; }
+    sup { font-size:.7em; }
+  </style>`;
+}
+
+function updateBackButton() {
+  const btn = document.getElementById("btn-back");
+  if (!btn) return;
+  // Disabled if on the very first page (can't go back further)
+  if (myPath.length <= 1) {
+    btn.disabled = true;
+    btn.classList.add("btn-back-disabled");
+  } else {
+    btn.disabled = false;
+    btn.classList.remove("btn-back-disabled");
+  }
 }
 
 // ─── Path trail ───────────────────────────────────────────────────────────────
@@ -446,7 +579,7 @@ function updatePathTrail() {
   if (!trail) return;
   trail.innerHTML = "";
 
-  myPath.forEach((article, i) => {
+  myPath.forEach((entry, i) => {
     if (i > 0) {
       const arrow = document.createElement("span");
       arrow.className = "trail-arrow";
@@ -455,11 +588,10 @@ function updatePathTrail() {
     }
     const pill = document.createElement("span");
     pill.className = "trail-pill" + (i === myPath.length - 1 ? " trail-current" : "");
-    pill.textContent = article;
+    pill.textContent = entry.title;
     trail.appendChild(pill);
   });
 
-  // Scroll to end
   trail.scrollLeft = trail.scrollWidth;
 }
 
@@ -469,8 +601,6 @@ socket.on("game:tick", ({ remaining }) => {
   const sec = remaining % 60;
   const el  = document.getElementById("timer-value");
   if (el) el.textContent = `${min}:${sec.toString().padStart(2, "0")}`;
-
-  // Urgent styling under 60s
   const timerBox = document.getElementById("game-timer");
   if (timerBox) {
     if (remaining <= 60) timerBox.classList.add("urgent");
@@ -478,16 +608,14 @@ socket.on("game:tick", ({ remaining }) => {
   }
 });
 
-// ─── Win notification ─────────────────────────────────────────────────────────
+// ─── Win ──────────────────────────────────────────────────────────────────────
 socket.on("game:won", ({ rank, clicks, time }) => {
-  const ms = time;
-  const s  = Math.floor(ms / 1000);
-  const m  = Math.floor(s / 60);
-  const timeStr = `${m}:${(s % 60).toString().padStart(2,"0")}`;
-  showToast(`🏆 You finished #${rank} in ${clicks} clicks (${timeStr})!`, "success");
+  const s = Math.floor(time / 1000);
+  const timeStr = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
+  showToast(`🏆 You won in ${clicks} clicks (${timeStr})!`, "success");
 });
 
-// ─── Game over overlay ────────────────────────────────────────────────────────
+// ─── Game over ────────────────────────────────────────────────────────────────
 socket.on("game:over", ({ leaderboard }) => {
   const overlay = document.getElementById("overlay-gameover");
   const list    = document.getElementById("gameover-leaderboard");
@@ -498,14 +626,13 @@ socket.on("game:over", ({ leaderboard }) => {
   list.innerHTML = "";
   overlay.classList.remove("hidden");
 
-  // Find my rank
   const me = leaderboard.find(p => p.id === socket.id);
   if (me && me.finished) {
-    result.textContent = me.rank === 1 ? "🏆" : me.rank === 2 ? "🥈" : me.rank === 3 ? "🥉" : "🎉";
-    title.textContent  = me.rank === 1 ? "You Won!" : `You placed #${me.rank}`;
+    result.textContent = me.rank === 1 ? "🏆" : "🎉";
+    title.textContent  = me.rank === 1 ? "You Won!" : "Race Over!";
   } else {
     result.textContent = "⏱️";
-    title.textContent  = "Time's Up!";
+    title.textContent  = "Race Over!";
   }
 
   const rankEmojis = ["🥇", "🥈", "🥉"];
@@ -537,18 +664,16 @@ socket.on("game:over", ({ leaderboard }) => {
     list.appendChild(li);
   });
 
-  // Show play again only to host
   if (isHost) playBtn.classList.remove("hidden");
   else        playBtn.classList.add("hidden");
 });
 
-// ─── Play again: return to lobby ─────────────────────────────────────────────
 socket.on("game:reset", () => {
   document.getElementById("overlay-gameover").classList.add("hidden");
   showScreen("lobby");
 });
 
-// ─── Avatar color generator (deterministic from name) ────────────────────────
+// ─── Avatar colors ────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
   "#3366CC","#2E7D32","#6A1B9A","#C62828","#AD6800",
   "#00695C","#1565C0","#4527A0","#558B2F","#BF360C"

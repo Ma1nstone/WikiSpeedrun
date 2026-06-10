@@ -1,6 +1,8 @@
 /**
  * WikiRace - server.js
- * Express + Socket.IO server handling all multiplayer game state
+ * Changes:
+ * - RACE_CHALLENGES array with start/target names + Wikipedia URLs (served via API)
+ * - First person to reach target wins immediately (game ends on first finish)
  */
 
 const express = require('express');
@@ -10,59 +12,50 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
+const io = new Server(server, { cors: { origin: '*' } });
 
-
-// Serve static files
+// Serve public folder AND root (for favicon in /images/)
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname)));
-// ─── Game State ────────────────────────────────────────────────────────────────
 
-/**
- * rooms: Map<roomCode, RoomState>
- * RoomState {
- *   code: string,
- *   host: socketId,
- *   players: Map<socketId, PlayerState>,
- *   status: 'waiting' | 'playing' | 'finished',
- *   target: string,        // Target article title
- *   targetUrl: string,     // Target Wikipedia URL
- *   startTime: number,
- *   gameTimer: NodeJS.Timeout | null,
- *   timeLimit: number      // seconds
- * }
- *
- * PlayerState {
- *   id: socketId,
- *   name: string,
- *   currentArticle: string,
- *   articlePath: string[],
- *   clicks: number,
- *   finished: boolean,
- *   finishTime: number | null,
- *   rank: number | null
- * }
- */
-const rooms = new Map();
-let onlineCount = 0;
-
-// Curated list of interesting WikiRace challenges
+// ─── Race Challenges ──────────────────────────────────────────────────────────
+// Served to client via /api/challenges so the page can display start/target info
 const RACE_CHALLENGES = [
-  { start: 'Adolf Hitler',         target: 'Tea',             startUrl: '/wiki/Adolf_Hitler',         targetUrl: '/wiki/Tea' },
-  { start: 'Cleopatra',            target: 'Internet',        startUrl: '/wiki/Cleopatra',             targetUrl: '/wiki/Internet' },
-  { start: 'Dinosaur',             target: 'Stock market',    startUrl: '/wiki/Dinosaur',              targetUrl: '/wiki/Stock_market' },
-  { start: 'Moon',                 target: 'Pizza',           startUrl: '/wiki/Moon',                  targetUrl: '/wiki/Pizza' },
-  { start: 'Ancient Rome',         target: 'Basketball',      startUrl: '/wiki/Ancient_Rome',          targetUrl: '/wiki/Basketball' },
-  { start: 'Photosynthesis',       target: 'World War II',    startUrl: '/wiki/Photosynthesis',        targetUrl: '/wiki/World_War_II' },
-  { start: 'Black hole',           target: 'Music',           startUrl: '/wiki/Black_hole',            targetUrl: '/wiki/Music' },
-  { start: 'Charles Darwin',       target: 'Nuclear weapon',  startUrl: '/wiki/Charles_Darwin',        targetUrl: '/wiki/Nuclear_weapon' },
-  { start: 'Shakespeare',          target: 'Quantum mechanics', startUrl: '/wiki/William_Shakespeare', targetUrl: '/wiki/Quantum_mechanics' },
-  { start: 'Great Wall of China',  target: 'Jazz',            startUrl: '/wiki/Great_Wall_of_China',   targetUrl: '/wiki/Jazz' },
+  { start: 'Moon',                 target: 'Pizza',             startUrl: '/wiki/Moon',                  targetUrl: '/wiki/Pizza' },
+  { start: 'Cleopatra',            target: 'Internet',          startUrl: '/wiki/Cleopatra',              targetUrl: '/wiki/Internet' },
+  { start: 'Dinosaur',             target: 'Stock market',      startUrl: '/wiki/Dinosaur',               targetUrl: '/wiki/Stock_market' },
+  { start: 'Ancient Rome',         target: 'Basketball',        startUrl: '/wiki/Ancient_Rome',           targetUrl: '/wiki/Basketball' },
+  { start: 'Photosynthesis',       target: 'World War II',      startUrl: '/wiki/Photosynthesis',         targetUrl: '/wiki/World_War_II' },
+  { start: 'Black hole',           target: 'Music',             startUrl: '/wiki/Black_hole',             targetUrl: '/wiki/Music' },
+  { start: 'Charles Darwin',       target: 'Nuclear weapon',    startUrl: '/wiki/Charles_Darwin',         targetUrl: '/wiki/Nuclear_weapon' },
+  { start: 'William Shakespeare',  target: 'Quantum mechanics', startUrl: '/wiki/William_Shakespeare',    targetUrl: '/wiki/Quantum_mechanics' },
+  { start: 'Great Wall of China',  target: 'Jazz',              startUrl: '/wiki/Great_Wall_of_China',    targetUrl: '/wiki/Jazz' },
+  { start: 'Albert Einstein',      target: 'Football',          startUrl: '/wiki/Albert_Einstein',        targetUrl: '/wiki/Association_football' },
+  { start: 'Titanic',              target: 'Photography',       startUrl: '/wiki/Titanic',                targetUrl: '/wiki/Photography' },
+  { start: 'Amazon rainforest',    target: 'Television',        startUrl: '/wiki/Amazon_rainforest',      targetUrl: '/wiki/Television' },
+  { start: 'Genghis Khan',         target: 'Chess',             startUrl: '/wiki/Genghis_Khan',           targetUrl: '/wiki/Chess' },
+  { start: 'Mount Everest',        target: 'Democracy',         startUrl: '/wiki/Mount_Everest',          targetUrl: '/wiki/Democracy' },
+  { start: 'Nikola Tesla',         target: 'Coffee',            startUrl: '/wiki/Nikola_Tesla',           targetUrl: '/wiki/Coffee' },
+  { start: 'French Revolution',    target: 'Baseball',          startUrl: '/wiki/French_Revolution',      targetUrl: '/wiki/Baseball' },
+  { start: 'DNA',                  target: 'Guitar',            startUrl: '/wiki/DNA',                    targetUrl: '/wiki/Guitar' },
+  { start: 'Roman Empire',         target: 'Chocolate',         startUrl: '/wiki/Roman_Empire',           targetUrl: '/wiki/Chocolate' },
+  { start: 'Isaac Newton',         target: 'Sushi',             startUrl: '/wiki/Isaac_Newton',           targetUrl: '/wiki/Sushi' },
+  { start: 'Viking',               target: 'Cinema',            startUrl: '/wiki/Vikings',                targetUrl: '/wiki/Cinema' },
+  { start: 'Volcano',              target: 'Olympics',          startUrl: '/wiki/Volcano',                targetUrl: '/wiki/Olympic_Games' },
+  { start: 'Napoleon',             target: 'Tennis',            startUrl: '/wiki/Napoleon',               targetUrl: '/wiki/Tennis' },
+  { start: 'Shark',                target: 'Piano',             startUrl: '/wiki/Shark',                  targetUrl: '/wiki/Piano' },
+  { start: 'Space Shuttle',        target: 'Buddhism',          startUrl: '/wiki/Space_Shuttle',          targetUrl: '/wiki/Buddhism' },
+  { start: 'Eiffel Tower',         target: 'Bacteria',          startUrl: '/wiki/Eiffel_Tower',           targetUrl: '/wiki/Bacteria' },
 ];
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// Expose challenges list to client (names only, no URLs needed client-side)
+app.get('/api/challenges', (req, res) => {
+  res.json(RACE_CHALLENGES.map(c => ({ start: c.start, target: c.target })));
+});
+
+// ─── Room State ───────────────────────────────────────────────────────────────
+const rooms = new Map();
+let onlineCount = 0;
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -74,16 +67,6 @@ function generateRoomCode() {
 }
 
 function getRoomPublicState(room) {
-  const players = Array.from(room.players.values()).map(p => ({
-    id: p.id,
-    name: p.name,
-    currentArticle: p.currentArticle,
-    articlePath: p.articlePath,
-    clicks: p.clicks,
-    finished: p.finished,
-    finishTime: p.finishTime,
-    rank: p.rank,
-  }));
   return {
     code: room.code,
     host: room.host,
@@ -94,7 +77,16 @@ function getRoomPublicState(room) {
     startUrl: room.startUrl,
     startTime: room.startTime,
     timeLimit: room.timeLimit,
-    players,
+    players: Array.from(room.players.values()).map(p => ({
+      id: p.id,
+      name: p.name,
+      currentArticle: p.currentArticle,
+      articlePath: p.articlePath,
+      clicks: p.clicks,
+      finished: p.finished,
+      finishTime: p.finishTime,
+      rank: p.rank,
+    })),
   };
 }
 
@@ -114,141 +106,103 @@ function broadcastOnlineCount() {
   io.emit('server:online', { count: onlineCount });
 }
 
-// ─── Socket.IO Events ──────────────────────────────────────────────────────────
-
+// ─── Socket Events ────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   onlineCount++;
   broadcastOnlineCount();
   console.log(`[+] ${socket.id} connected | total: ${onlineCount}`);
 
-  // ── Create Lobby ──
   socket.on('lobby:create', ({ playerName }) => {
     if (!playerName?.trim()) return socket.emit('error', { msg: 'Name required' });
-
     const code = generateRoomCode();
     const room = {
-      code,
-      host: socket.id,
+      code, host: socket.id,
       players: new Map(),
       status: 'waiting',
-      target: null,
-      targetUrl: null,
-      startArticle: null,
-      startUrl: null,
-      startTime: null,
-      gameTimer: null,
-      timeLimit: 300, // 5 minutes
+      target: null, targetUrl: null,
+      startArticle: null, startUrl: null,
+      startTime: null, gameTimer: null,
+      timeLimit: 300,
     };
-
     room.players.set(socket.id, {
-      id: socket.id,
-      name: playerName.trim().slice(0, 20),
-      currentArticle: '',
-      articlePath: [],
-      clicks: 0,
-      finished: false,
-      finishTime: null,
-      rank: null,
+      id: socket.id, name: playerName.trim().slice(0, 20),
+      currentArticle: '', articlePath: [], clicks: 0,
+      finished: false, finishTime: null, rank: null,
     });
-
     rooms.set(code, room);
     socket.join(code);
     socket.data.roomCode = code;
-
     socket.emit('lobby:created', { code });
     broadcastRoomState(room);
     console.log(`[ROOM] ${code} created by ${playerName}`);
   });
 
-  // ── Join Lobby ──
   socket.on('lobby:join', ({ roomCode, playerName }) => {
     const code = (roomCode || '').toUpperCase().trim();
     if (!playerName?.trim()) return socket.emit('error', { msg: 'Name required' });
     if (!code) return socket.emit('error', { msg: 'Room code required' });
-
     const room = rooms.get(code);
     if (!room) return socket.emit('error', { msg: 'Room not found. Check the code and try again.' });
     if (room.status !== 'waiting') return socket.emit('error', { msg: 'Game already in progress.' });
     if (room.players.size >= 8) return socket.emit('error', { msg: 'Room is full (max 8 players).' });
-
     room.players.set(socket.id, {
-      id: socket.id,
-      name: playerName.trim().slice(0, 20),
-      currentArticle: '',
-      articlePath: [],
-      clicks: 0,
-      finished: false,
-      finishTime: null,
-      rank: null,
+      id: socket.id, name: playerName.trim().slice(0, 20),
+      currentArticle: '', articlePath: [], clicks: 0,
+      finished: false, finishTime: null, rank: null,
     });
-
     socket.join(code);
     socket.data.roomCode = code;
-
     socket.emit('lobby:joined', { code });
     io.to(code).emit('toast', { msg: `${playerName} joined the lobby`, type: 'info' });
     broadcastRoomState(room);
     console.log(`[ROOM] ${code}: ${playerName} joined`);
   });
 
-  // ── Leave Lobby ──
-  socket.on('lobby:leave', () => {
-    handleLeave(socket);
-  });
+  socket.on('lobby:leave', () => handleLeave(socket));
 
-  // ── Start Game ──
   socket.on('game:start', () => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
     if (!room) return;
     if (room.host !== socket.id) return socket.emit('error', { msg: 'Only the host can start.' });
-    if (room.players.size < 1) return socket.emit('error', { msg: 'Need at least 1 player.' });
     if (room.status !== 'waiting') return;
 
-    // Pick a random challenge
     const challenge = RACE_CHALLENGES[Math.floor(Math.random() * RACE_CHALLENGES.length)];
-    room.target = challenge.target;
-    room.targetUrl = challenge.targetUrl;
+    room.target       = challenge.target;
+    room.targetUrl    = challenge.targetUrl;
     room.startArticle = challenge.start;
-    room.startUrl = challenge.startUrl;
-    room.status = 'playing';
-    room.startTime = Date.now();
+    room.startUrl     = challenge.startUrl;
+    room.status       = 'playing';
+    room.startTime    = Date.now();
 
-    // Reset all players
     room.players.forEach(p => {
       p.currentArticle = challenge.start;
-      p.articlePath = [challenge.start];
-      p.clicks = 0;
-      p.finished = false;
-      p.finishTime = null;
-      p.rank = null;
+      p.articlePath    = [challenge.start];
+      p.clicks         = 0;
+      p.finished       = false;
+      p.finishTime     = null;
+      p.rank           = null;
     });
 
     broadcastRoomState(room);
     io.to(code).emit('game:starting', {
       startArticle: room.startArticle,
-      startUrl: room.startUrl,
-      target: room.target,
-      targetUrl: room.targetUrl,
-      timeLimit: room.timeLimit,
+      startUrl:     room.startUrl,
+      target:       room.target,
+      targetUrl:    room.targetUrl,
+      timeLimit:    room.timeLimit,
     });
 
-    // Timer tick every second
     room.gameTimer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - room.startTime) / 1000);
-      const remaining = room.timeLimit - elapsed;
-
+      const remaining = room.timeLimit - Math.floor((Date.now() - room.startTime) / 1000);
       io.to(code).emit('game:tick', { remaining });
-
-      if (remaining <= 0) {
-        endGame(room);
-      }
+      if (remaining <= 0) endGame(room);
     }, 1000);
 
     console.log(`[GAME] ${code}: started — ${challenge.start} → ${challenge.target}`);
   });
 
-  // ── Player navigates to new article ──
+  // ── Player navigates to a new article ──
   socket.on('game:navigate', ({ article, url }) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
@@ -261,66 +215,51 @@ io.on('connection', (socket) => {
     player.articlePath.push(article);
     player.clicks++;
 
-    // Check win condition
-    const normalizedArticle = article.toLowerCase().replace(/_/g, ' ').trim();
-    const normalizedTarget = room.target.toLowerCase().replace(/_/g, ' ').trim();
+    // Normalise both sides for comparison
+    const norm = s => decodeURIComponent(s).toLowerCase().replace(/_/g, ' ').trim();
+    const targetSlug   = norm(room.targetUrl.replace('/wiki/', ''));
+    const incomingSlug = norm((url.split('/wiki/')[1] || article));
+    const targetName   = norm(room.target);
 
-    if (normalizedArticle === normalizedTarget || url.includes(room.targetUrl)) {
-      player.finished = true;
+    if (incomingSlug === targetSlug || incomingSlug === targetName) {
+      // ── FIRST TO FINISH WINS — end game immediately ──
+      player.finished   = true;
       player.finishTime = Date.now() - room.startTime;
-      const finishedCount = Array.from(room.players.values()).filter(p => p.finished).length;
-      player.rank = finishedCount;
+      player.rank       = 1;
 
       socket.emit('game:won', {
-        rank: player.rank,
-        clicks: player.clicks,
-        time: player.finishTime,
-        path: player.articlePath,
+        rank: 1, clicks: player.clicks,
+        time: player.finishTime, path: player.articlePath,
       });
 
       io.to(code).emit('toast', {
-        msg: `🏆 ${player.name} reached the target in ${player.clicks} clicks!`,
-        type: 'success'
+        msg: `🏆 ${player.name} won in ${player.clicks} clicks!`,
+        type: 'success',
       });
 
-      // Check if all finished
-      const allFinished = Array.from(room.players.values()).every(p => p.finished);
-      if (allFinished) endGame(room);
+      endGame(room); // end immediately for everyone
+      return;
     }
 
     broadcastRoomState(room);
   });
 
-  // ── Play Again (host resets) ──
   socket.on('game:playAgain', () => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
-    if (!room) return;
-    if (room.host !== socket.id) return;
-
+    if (!room || room.host !== socket.id) return;
     if (room.gameTimer) clearInterval(room.gameTimer);
     room.status = 'waiting';
-    room.target = null;
-    room.targetUrl = null;
-    room.startArticle = null;
-    room.startUrl = null;
-    room.startTime = null;
-    room.gameTimer = null;
-
+    room.target = room.targetUrl = room.startArticle = room.startUrl = null;
+    room.startTime = room.gameTimer = null;
     room.players.forEach(p => {
-      p.currentArticle = '';
-      p.articlePath = [];
-      p.clicks = 0;
-      p.finished = false;
-      p.finishTime = null;
-      p.rank = null;
+      p.currentArticle = ''; p.articlePath = []; p.clicks = 0;
+      p.finished = false; p.finishTime = null; p.rank = null;
     });
-
     io.to(code).emit('game:reset');
     broadcastRoomState(room);
   });
 
-  // ── Disconnect ──
   socket.on('disconnect', () => {
     onlineCount = Math.max(0, onlineCount - 1);
     broadcastOnlineCount();
@@ -329,30 +268,19 @@ io.on('connection', (socket) => {
   });
 });
 
-// ─── Game Logic ────────────────────────────────────────────────────────────────
-
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function endGame(room) {
   if (room.status !== 'playing') return;
   if (room.gameTimer) clearInterval(room.gameTimer);
-
   room.status = 'finished';
 
-  // Build final leaderboard
   const leaderboard = Array.from(room.players.values())
-    .map(p => ({
-      id: p.id,
-      name: p.name,
-      clicks: p.clicks,
-      finished: p.finished,
-      finishTime: p.finishTime,
-      rank: p.rank,
-      articlePath: p.articlePath,
-    }))
+    .map(p => ({ id: p.id, name: p.name, clicks: p.clicks, finished: p.finished, finishTime: p.finishTime, rank: p.rank, articlePath: p.articlePath }))
     .sort((a, b) => {
       if (a.finished && !b.finished) return -1;
       if (!a.finished && b.finished) return 1;
       if (a.finished && b.finished) return a.finishTime - b.finishTime;
-      return b.clicks - a.clicks; // more progress = better
+      return b.clicks - a.clicks;
     });
 
   io.to(room.code).emit('game:over', { leaderboard });
@@ -363,36 +291,22 @@ function endGame(room) {
 function handleLeave(socket) {
   const code = socket.data.roomCode;
   if (!code) return;
-
   const room = rooms.get(code);
   if (!room) return;
-
-  const player = room.players.get(socket.id);
-  const playerName = player?.name || 'A player';
-
+  const playerName = room.players.get(socket.id)?.name || 'A player';
   room.players.delete(socket.id);
   socket.leave(code);
   socket.data.roomCode = null;
-
-  if (room.players.size === 0) {
-    cleanupRoom(code);
-    console.log(`[ROOM] ${code}: empty, cleaned up`);
-    return;
-  }
-
-  // Transfer host if needed
+  if (room.players.size === 0) { cleanupRoom(code); return; }
   if (room.host === socket.id) {
     room.host = room.players.keys().next().value;
-    const newHost = room.players.get(room.host);
-    io.to(code).emit('toast', { msg: `${newHost.name} is now the host`, type: 'info' });
+    io.to(code).emit('toast', { msg: `${room.players.get(room.host).name} is now the host`, type: 'info' });
   }
-
   io.to(code).emit('toast', { msg: `${playerName} left the lobby`, type: 'warning' });
   broadcastRoomState(room);
 }
 
-// ─── Start Server ──────────────────────────────────────────────────────────────
-
-server.listen(process.env.PORT || 3000, "0.0.0.0", () => {
+// ─── Start ────────────────────────────────────────────────────────────────────
+server.listen(process.env.PORT || 3000, '0.0.0.0', () => {
   console.log(`Server running on port ${process.env.PORT || 3000}`);
 });
