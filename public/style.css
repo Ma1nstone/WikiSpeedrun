@@ -178,6 +178,12 @@ input { font-family: inherit; }
 .wiki-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(255,255,255,.9); z-index: 5; font-size: .88rem; color: var(--ink-muted); }
 
 .wiki-scroll-area { flex: 1; overflow-y: auto; }
+@font-face {
+  font-family: "Georgia Custom";
+  src: url("/georgia.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
 
 /* Title bar — same as WikipediaRaces.com */
 .wiki-title-bar { background: white; border-bottom: 1px solid #eaecf0; padding: 10px 20px; max-width: 760px; margin: 0 auto; width: 100%; }
@@ -190,18 +196,13 @@ input { font-family: inherit; }
   line-height: 1.2;
 }
 
-@font-face {
-  font-family: "Georgia Custom";
-  src: url("/georgia.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-}
+
 
 /* ══════════════════════════════════════════════════════════════
    .wiki-content — EXACT CSS from WikipediaRaces.com source
    ══════════════════════════════════════════════════════════ */
 .wiki-content {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Lato, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Georgia Custom", Georgia, "Times New Roman", serif;
   font-size: 15px;
   line-height: 1.65;
   color: #202122;
