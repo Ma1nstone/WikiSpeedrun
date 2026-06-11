@@ -373,6 +373,9 @@ socket.on("game:starting", (data) => {
   document.getElementById("game-click-count").textContent    = "0";
   document.getElementById("path-trail").innerHTML            = "";
   document.getElementById("punishment-banner").classList.add("hidden");
+  // Clear scoreboard so previous game scores don't show
+  const sb = document.getElementById("game-scoreboard");
+  if (sb) sb.innerHTML = "";
   updateBackButton();
   const timerEl = document.getElementById("timer-value");
   if (timerEl) timerEl.textContent = "0:00";
@@ -661,6 +664,9 @@ socket.on("game:reset", () => {
   if (punishTimer) clearInterval(punishTimer);
   punished = false;
   document.getElementById("punishment-banner").classList.add("hidden");
+  // Clear scoreboard immediately so old scores don't linger
+  const sb = document.getElementById("game-scoreboard");
+  if (sb) sb.innerHTML = "";
   showScreen("lobby");
 });
 

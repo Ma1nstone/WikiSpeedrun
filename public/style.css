@@ -187,7 +187,7 @@ input { font-family: inherit; }
    .wiki-content
    ══════════════════════════════════════════════════════════ */
 .wiki-content {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Lato, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Georgia Custom", Georgia, "Times New Roman", serif;
   font-size: 15px;
   line-height: 1.65;
   color: #202122;
@@ -240,61 +240,58 @@ input { font-family: inherit; }
   cursor: pointer;
 }
 
-/* ── Images — show them properly ── */
-.wiki-content img {
-  max-width: 100%;
-  height: auto;
+/* ── Georgia font for Wikipedia feel ── */
+@font-face {
+  font-family: "Georgia Custom";
+  src: url("/georgia.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
 }
-/* Allow wikimedia-hosted images (src="//upload.wikimedia.org/...") */
-.wiki-content img[src*="wikimedia"],
-.wiki-content img[src*="wikipedia"],
-.wiki-content img[src^="//upload"],
-.wiki-content img[src^="https://upload"] {
-  display: inline-block;
-  max-width: 100%;
-  height: auto;
-}
-.wiki-content .thumb {
-  display: table;
-  margin: 6px 0 6px 20px;
-  float: right;
-  clear: right;
-  max-width: 280px;
-}
-.wiki-content .thumb.tleft { float: left; margin: 6px 20px 6px 0; }
-.wiki-content .thumbinner {
-  border: 1px solid #c8ccd1;
-  background: #f8f9fa;
-  padding: 3px;
-  font-size: 94%;
-  text-align: center;
-}
-.wiki-content .thumbcaption,
-.wiki-content figcaption {
-  font-size: .82em;
-  color: #54595d;
-  text-align: center;
-  padding: 3px 0 2px;
-  line-height: 1.4;
-}
-.wiki-content figure { display: block; margin: 0 0 10px 0; }
-.wiki-content .mw-file-element { max-width: 100%; height: auto; display: block; }
-.wiki-content .tmulti { display: block; }
 
-/* ── TABLE OF CONTENTS — show it (works across Wikipedia HTML variants) ── */
+/* ── Images: hide all inline/thumb images that break text flow ── */
+/* Keep only infobox images (maps, flags, portraits) */
+.wiki-content .thumb,
+.wiki-content .thumb.tleft,
+.wiki-content .thumb.tright,
+.wiki-content .thumbinner,
+.wiki-content .thumbcaption,
+.wiki-content figure,
+.wiki-content .mw-file-element,
+.wiki-content .tmulti,
+.wiki-content .mw-halign-right,
+.wiki-content .mw-halign-left,
+.wiki-content .mw-halign-center,
+.wiki-content .floatright,
+.wiki-content .floatleft { display: none !important; }
+
+/* Infobox images — keep these, they're key (flag, coat of arms, portrait) */
+.wiki-content .infobox img,
+.wiki-content .infobox .mw-file-element,
+.wiki-content .infobox figure,
+.wiki-content .infobox .thumb {
+  display: block !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+.wiki-content .infobox figure { float: none !important; margin: 0 auto !important; }
+.wiki-content .infobox .thumb { float: none !important; clear: none !important; }
+.wiki-content .infobox .thumbinner { border: none !important; background: none !important; padding: 0 !important; }
+
+/* ── TABLE OF CONTENTS — float LEFT like real Wikipedia ── */
 .wiki-content #toc,
 .wiki-content .toc,
-.wiki-content .mw-table-of-contents,
-.wiki-content [class*="toc"] {
-  display: inline-block !important;
+.wiki-content .mw-table-of-contents {
+  display: block !important;
+  float: left !important;
+  clear: left !important;
   background: #f8f9fa;
   border: 1px solid #a2a9b1;
   border-radius: 2px;
-  padding: 10px 16px 10px 10px;
-  margin: 0 0 16px 0;
+  padding: 10px 14px 10px 10px;
+  margin: 0 20px 16px 0;
   min-width: 180px;
-  max-width: 360px;
-  font-size: 14px;
+  max-width: 280px;
+  font-size: 13.5px;
   line-height: 1.6;
 }
 .wiki-content .toctitle,
@@ -313,17 +310,17 @@ input { font-family: inherit; }
 .wiki-content .toclevel-1 { margin: 3px 0; list-style: none; }
 .wiki-content .toclevel-2 { margin: 2px 0 2px 14px; font-size: .93em; list-style: none; }
 .wiki-content .toclevel-3 { margin: 1px 0 1px 24px; font-size: .9em; list-style: none; }
-/* Make sure TOC lists have no bullets */
 .wiki-content #toc ul,
 .wiki-content .toc ul { list-style: none; padding-left: 0; margin: 0; }
 .wiki-content #toc ul ul,
 .wiki-content .toc ul ul { padding-left: 14px; }
-/* TOC links — blue, working */
+/* TOC links — blue, scroll on click */
 .wiki-content .toc a,
 .wiki-content #toc a {
   color: #3366CC !important;
   pointer-events: auto !important;
   cursor: pointer;
+  text-decoration: none;
 }
 .wiki-content .toc a:hover,
 .wiki-content #toc a:hover { text-decoration: underline; }
