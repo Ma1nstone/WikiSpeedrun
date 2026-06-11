@@ -69,6 +69,13 @@ function showScreen(name) {
   if (!screen) return;
   screen.classList.remove("hidden");
   screen.classList.add("active");
+
+  // Only show commit badge on home screen
+  const badge = document.getElementById("commit-badge");
+  if (badge) {
+    if (name === "home") badge.classList.remove("hidden");
+    else                 badge.classList.add("hidden");
+  }
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -99,6 +106,44 @@ async function loadChallengePreview() {
   } catch (e) {}
 }
 
+// ─── Latest commit badge (home screen, bottom left) ───────────────────────────
+async function fetchLatestCommit() {
+  const badge   = document.getElementById("commit-badge");
+  const hashEl  = document.getElementById("commit-hash");
+  const msgEl   = document.getElementById("commit-msg");
+  if (!badge) return;
+
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/Ma1nstone/WikiSpeedrun/commits?per_page=1",
+      { headers: { Accept: "application/vnd.github.v3+json" } }
+    );
+    if (!res.ok) return;
+    const [commit] = await res.json();
+    if (!commit) return;
+
+    const sha     = commit.sha.slice(0, 7);
+    const message = commit.commit.message.split("\n")[0]; // first line only
+    const date    = new Date(commit.commit.author.date);
+    const ago     = timeAgo(date);
+
+    hashEl.textContent = sha;
+    msgEl.textContent  = `${message} · ${ago}`;
+    badge.classList.remove("hidden");
+    badge.title = `${commit.commit.author.name} — ${date.toLocaleString()}`;
+  } catch (e) {
+    // GitHub API unavailable — silently hide badge
+  }
+}
+
+function timeAgo(date) {
+  const seconds = Math.floor((Date.now() - date) / 1000);
+  if (seconds < 60)   return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds/60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds/3600)}h ago`;
+  return `${Math.floor(seconds/86400)}d ago`;
+}
+
 // ─── Modal ────────────────────────────────────────────────────────────────────
 function openNameModal(isJoin) {
   joining = isJoin;
@@ -124,6 +169,7 @@ function openNameModal(isJoin) {
 // ─── DOM Ready ────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
   loadChallengePreview();
+  fetchLatestCommit();
 
   document.getElementById("btn-create").onclick      = () => openNameModal(false);
   document.getElementById("btn-join-open").onclick   = () => openNameModal(true);
@@ -492,25 +538,23 @@ function updatePathTrail() {
 
 // ─── Back button ──────────────────────────────────────────────────────────────
 function goBack() {
-  if (myPath.length <= 1) return; // already at the start, nowhere to go
+  if (myPath.length <= 1) return;
 
   // Remove current page from path
   myPath.pop();
 
   const prev = myPath[myPath.length - 1];
 
-  // Going back costs a click (same as forward — you're still navigating)
-  clickCount++;
-  document.getElementById("game-click-count").textContent = clickCount;
+  // Back is FREE — no click added, no click deducted
+  // (going back doesn't help you win, so no penalty needed)
 
   document.getElementById("game-current-article").textContent = prev.title;
   updatePathTrail();
   updateBackButton();
 
-  // Tell server we're now on the previous article
+  // Tell server we're back on previous article (doesn't count as navigate click)
   socket.emit("game:navigate", { article: prev.title, url: prev.url });
 
-  // Load it — don't push to myPath since we already updated it above
   loadWikiPageNoHistory(prev.url.split("/wiki/")[1], prev.title);
 }
 

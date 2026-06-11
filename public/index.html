@@ -24,6 +24,13 @@
 <body>
   <div id="toast-container" aria-live="polite"></div>
 
+  <!-- Latest commit badge — bottom left of home screen -->
+  <div id="commit-badge" class="commit-badge hidden">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
+    <span id="commit-hash" class="commit-hash"></span>
+    <span id="commit-msg" class="commit-msg"></span>
+  </div>
+
   <!-- ═══ HOME ═══ -->
   <div id="screen-home" class="screen active">
     <div class="home-bg-grid"></div>

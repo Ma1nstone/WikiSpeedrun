@@ -240,18 +240,52 @@ input { font-family: inherit; }
   cursor: pointer;
 }
 
-/* ── Images — show them (needed for infobox flags/maps) ── */
-.wiki-content img { max-width: 100%; height: auto; }
-.wiki-content .thumb { display: block; }
-.wiki-content figure { display: block; margin: 0; }
+/* ── Images — show them properly ── */
+.wiki-content img {
+  max-width: 100%;
+  height: auto;
+}
+/* Allow wikimedia-hosted images (src="//upload.wikimedia.org/...") */
+.wiki-content img[src*="wikimedia"],
+.wiki-content img[src*="wikipedia"],
+.wiki-content img[src^="//upload"],
+.wiki-content img[src^="https://upload"] {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+}
+.wiki-content .thumb {
+  display: table;
+  margin: 6px 0 6px 20px;
+  float: right;
+  clear: right;
+  max-width: 280px;
+}
+.wiki-content .thumb.tleft { float: left; margin: 6px 20px 6px 0; }
+.wiki-content .thumbinner {
+  border: 1px solid #c8ccd1;
+  background: #f8f9fa;
+  padding: 3px;
+  font-size: 94%;
+  text-align: center;
+}
+.wiki-content .thumbcaption,
+.wiki-content figcaption {
+  font-size: .82em;
+  color: #54595d;
+  text-align: center;
+  padding: 3px 0 2px;
+  line-height: 1.4;
+}
+.wiki-content figure { display: block; margin: 0 0 10px 0; }
 .wiki-content .mw-file-element { max-width: 100%; height: auto; display: block; }
 .wiki-content .tmulti { display: block; }
-.wiki-content figcaption,
-.wiki-content .thumbcaption { font-size: .82em; color: #54595d; text-align: center; margin-top: 3px; }
 
-/* ── TABLE OF CONTENTS — show it ── */
+/* ── TABLE OF CONTENTS — show it (works across Wikipedia HTML variants) ── */
 .wiki-content #toc,
-.wiki-content .toc {
+.wiki-content .toc,
+.wiki-content .mw-table-of-contents,
+.wiki-content [class*="toc"] {
   display: inline-block !important;
   background: #f8f9fa;
   border: 1px solid #a2a9b1;
@@ -261,25 +295,36 @@ input { font-family: inherit; }
   min-width: 180px;
   max-width: 360px;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
+.wiki-content .toctitle,
 .wiki-content .toctitle h2,
 .wiki-content #toctitle {
   font-size: 1em !important;
-  font-weight: 700;
+  font-weight: 700 !important;
   border: none !important;
   margin: 0 0 6px 0 !important;
   padding: 0 !important;
-  display: inline;
+  display: inline !important;
 }
-.wiki-content .toctogglespan { font-size: .85em; color: #555; margin-left: 6px; }
+.wiki-content .toctogglespan,
+.wiki-content .toctoggle { font-size: .85em; color: #555; margin-left: 6px; }
 .wiki-content .tocnumber { color: #54595d; margin-right: 5px; }
-.wiki-content .toclevel-1 { margin: 2px 0; }
-.wiki-content .toclevel-2 { margin: 1px 0 1px 14px; font-size: .93em; }
-.wiki-content .toclevel-3 { margin: 1px 0 1px 24px; font-size: .9em; }
+.wiki-content .toclevel-1 { margin: 3px 0; list-style: none; }
+.wiki-content .toclevel-2 { margin: 2px 0 2px 14px; font-size: .93em; list-style: none; }
+.wiki-content .toclevel-3 { margin: 1px 0 1px 24px; font-size: .9em; list-style: none; }
+/* Make sure TOC lists have no bullets */
+.wiki-content #toc ul,
+.wiki-content .toc ul { list-style: none; padding-left: 0; margin: 0; }
+.wiki-content #toc ul ul,
+.wiki-content .toc ul ul { padding-left: 14px; }
 /* TOC links — blue, working */
 .wiki-content .toc a,
-.wiki-content #toc a { color: #3366CC !important; pointer-events: auto; cursor: pointer; }
+.wiki-content #toc a {
+  color: #3366CC !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+}
 .wiki-content .toc a:hover,
 .wiki-content #toc a:hover { text-decoration: underline; }
 
@@ -517,4 +562,43 @@ input { font-family: inherit; }
 .btn-back:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   COMMIT BADGE — bottom left of home screen
+   ══════════════════════════════════════════════════════════ */
+.commit-badge {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px 5px 9px;
+  font-size: .72rem;
+  color: var(--ink-muted);
+  box-shadow: var(--shadow-sm);
+  max-width: 320px;
+  overflow: hidden;
+  cursor: default;
+  transition: box-shadow .15s;
+}
+.commit-badge:hover { box-shadow: var(--shadow-md); }
+.commit-badge svg { color: var(--ink-muted); flex-shrink: 0; }
+.commit-hash {
+  font-family: 'Courier New', monospace;
+  font-size: .7rem;
+  color: var(--blue);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.commit-msg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-secondary);
 }
