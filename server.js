@@ -6,7 +6,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const https = require('https');
 
 const app = express();
 const server = http.createServer(app);
@@ -15,55 +14,6 @@ const io = new Server(server, { cors: { origin: '*' } });
 // Serve public folder AND root (for favicon)
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname)));
-
-// ─── Wikipedia Proxy ──────────────────────────────────────────────────────────
-// Bypasses CORS by fetching Wikipedia server-side and returning to client
-app.get('/wiki-proxy', (req, res) => {
-  const title = req.query.title;
-  const lang  = req.query.lang || 'en';
-
-  if (!title) return res.status(400).send('Missing title');
-
-  const wikiUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title)}?action=render`;
-
-  https.get(wikiUrl, {
-    headers: {
-      'User-Agent': 'SpeedWiki/1.0 (https://wiki-speedrun.onrender.com)',
-      'Accept': 'text/html',
-    }
-  }, (wikiRes) => {
-    // Follow redirects
-    if (wikiRes.statusCode === 301 || wikiRes.statusCode === 302) {
-      const redirectUrl = wikiRes.headers.location;
-      const redirectTitle = redirectUrl.split('/wiki/')[1]?.split('?')[0];
-      if (redirectTitle) {
-        return res.redirect(`/wiki-proxy?title=${redirectTitle}&lang=${lang}`);
-      }
-    }
-
-    if (wikiRes.statusCode !== 200) {
-      return res.status(wikiRes.statusCode).send('Wikipedia error');
-    }
-
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=300'); // cache 5 mins
-
-    let body = '';
-    wikiRes.on('data', chunk => body += chunk);
-    wikiRes.on('end', () => {
-      // Strip preload/prefetch tags — cause browser warnings when unused
-      body = body.replace(/<link[^>]+rel=["']?(preload|prefetch|dns-prefetch|preconnect)["']?[^>]*>/gi, '');
-      // Strip inline scripts — not needed, avoids CSP issues
-      body = body.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-      // Strip Wikipedia's own stylesheets — we inject our own clean version
-      body = body.replace(/<link[^>]+rel=["']stylesheet["'][^>]*>/gi, '');
-      res.send(body);
-    });
-  }).on('error', (err) => {
-    console.error('Wiki proxy error:', err);
-    res.status(500).send('Proxy error');
-  });
-});
 
 // ─── Race Challenges ──────────────────────────────────────────────────────────
 const { RACE_CHALLENGES } = require('./RaceChallenges');

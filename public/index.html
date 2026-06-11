@@ -31,12 +31,10 @@
         </div>
         <p class="logo-tagline">Navigate Wikipedia. Beat your friends.</p>
       </header>
-
       <div class="home-online-badge">
         <span class="online-dot"></span>
         <span id="home-online-count">0</span> players online
       </div>
-
       <div class="home-actions">
         <button id="btn-create" class="btn btn-primary btn-large">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -51,7 +49,6 @@
           How to Play
         </button>
       </div>
-
       <div class="home-preview">
         <div class="preview-card">
           <div class="preview-label">Example Race</div>
@@ -62,13 +59,13 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA0A6" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             <span class="preview-article preview-target" id="preview-target-name">Pizza</span>
           </div>
-          <div class="preview-sub">Click only Wikipedia links to reach the target article</div>
+          <div class="preview-sub">Click only Wikipedia body links to reach the target article</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ═══ MODAL: NAME / JOIN ═══ -->
+  <!-- ═══ MODAL: NAME ═══ -->
   <div id="modal-name" class="modal-overlay hidden">
     <div class="modal-card">
       <h2 class="modal-title" id="modal-name-title">Enter your name</h2>
@@ -92,10 +89,10 @@
       <ol class="how-list">
         <li><strong>Create or join</strong> a lobby with friends using a room code.</li>
         <li>The host <strong>starts the game</strong>. Everyone gets the same start &amp; target articles.</li>
-        <li><strong>Only body text links</strong> count — no sidebars, navboxes, infoboxes, or category links.</li>
+        <li><strong>Only body text links</strong> count — no sidebars, navboxes, infoboxes, or categories.</li>
         <li>The <strong>first player</strong> to reach the target article wins instantly.</li>
-        <li><strong>No back button</strong> — find a new path forward!</li>
-        <li>⚠️ Using the <strong>search bar</strong> switches Wikipedia to Chinese for 30 seconds!</li>
+        <li><strong>No back button</strong> — find a creative path forward!</li>
+        <li>⚠️ Using the <strong>Wikipedia search</strong> switches to Chinese for 30 seconds!</li>
         <li>The timer <strong>pauses during page loads</strong> for fair competition.</li>
       </ol>
       <div class="modal-actions">
@@ -108,9 +105,7 @@
   <div id="screen-lobby" class="screen hidden">
     <div class="lobby-shell">
       <div class="lobby-header">
-        <div class="lobby-brand">
-          <span class="logo-wiki">Speed</span><span class="logo-race">Wiki</span>
-        </div>
+        <div class="lobby-brand"><span class="logo-wiki">Speed</span><span class="logo-race">Wiki</span></div>
         <div class="lobby-online">
           <span class="online-dot"></span>
           <span id="lobby-online-count">0</span> online
@@ -128,10 +123,7 @@
           <div class="lobby-code-hint">Share this code so friends can join</div>
         </div>
         <div class="lobby-players-section">
-          <div class="section-heading">
-            Players
-            <span id="lobby-player-count" class="player-count-badge">0/8</span>
-          </div>
+          <div class="section-heading">Players <span id="lobby-player-count" class="player-count-badge">0/8</span></div>
           <ul id="lobby-player-list" class="player-list"></ul>
         </div>
         <div class="lobby-actions">
@@ -155,9 +147,7 @@
     <!-- Top bar -->
     <div class="game-topbar">
       <div class="topbar-left">
-        <div class="topbar-brand">
-          <span class="logo-wiki">Speed</span><span class="logo-race">Wiki</span>
-        </div>
+        <div class="topbar-brand"><span class="logo-wiki">Speed</span><span class="logo-race">Wiki</span></div>
         <div class="topbar-target">
           <span class="topbar-label">Target:</span>
           <span id="game-target-name" class="topbar-target-name">—</span>
@@ -170,7 +160,6 @@
         </div>
       </div>
       <div class="topbar-right">
-        <!-- Fair elapsed timer — pauses during page loads -->
         <div class="timer-display" id="game-timer">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span id="timer-value">0:00</span>
@@ -195,23 +184,29 @@
 
     <!-- Main area -->
     <div class="game-main">
+
+      <!-- Wikipedia viewer — div-based, no iframe -->
       <div class="wiki-panel">
-        <div id="wiki-loading" class="wiki-loading">
+        <div id="wiki-loading" class="wiki-loading hidden">
           <div class="spinner"></div>
-          <span>Loading Wikipedia…</span>
+          <span>Loading…</span>
         </div>
-        <iframe
-          id="wiki-frame"
-          src="about:blank"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          referrerpolicy="no-referrer"
-          title="Wikipedia Article Viewer"
-        ></iframe>
+
+        <div id="wiki-scroll-area" class="wiki-scroll-area">
+          <!-- Title bar matching WikipediaRaces.com style -->
+          <div class="wiki-title-bar">
+            <h1 id="wiki-page-title" class="wiki-page-title">—</h1>
+          </div>
+          <!-- Article body injected here -->
+          <div id="wiki-content" class="wiki-content"></div>
+        </div>
       </div>
+
+      <!-- Sidebar -->
       <aside class="game-sidebar">
         <div class="sidebar-section">
           <div class="sidebar-heading">🏁 First to finish wins</div>
-          <div id="game-target-display" class="sidebar-target-display">
+          <div class="sidebar-target-display">
             <div class="sidebar-target-label">Target Article</div>
             <div id="sidebar-target-name" class="sidebar-target-name">—</div>
           </div>
@@ -224,7 +219,7 @@
     </div>
   </div>
 
-  <!-- ═══ OVERLAY: COUNTDOWN ═══ -->
+  <!-- ═══ COUNTDOWN ═══ -->
   <div id="overlay-countdown" class="full-overlay hidden">
     <div class="countdown-card">
       <div class="countdown-label">Race starts in</div>
@@ -237,7 +232,7 @@
     </div>
   </div>
 
-  <!-- ═══ OVERLAY: GAME OVER ═══ -->
+  <!-- ═══ GAME OVER ═══ -->
   <div id="overlay-gameover" class="full-overlay hidden">
     <div class="gameover-card">
       <div id="gameover-your-result" class="gameover-result"></div>
