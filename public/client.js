@@ -163,6 +163,9 @@ window.addEventListener("DOMContentLoaded", () => {
     wikiContent.addEventListener("click", handleWikiClick);
   }
 
+  // Back button
+  document.getElementById("btn-back").onclick = () => goBack();
+
   document.getElementById("btn-play-again").onclick = () => socket.emit("game:playAgain");
   document.getElementById("btn-gameover-leave").onclick = () => {
     socket.emit("lobby:leave");
@@ -324,6 +327,7 @@ socket.on("game:starting", (data) => {
   document.getElementById("game-click-count").textContent    = "0";
   document.getElementById("path-trail").innerHTML            = "";
   document.getElementById("punishment-banner").classList.add("hidden");
+  updateBackButton();
   const timerEl = document.getElementById("timer-value");
   if (timerEl) timerEl.textContent = "0:00";
 
@@ -344,6 +348,7 @@ socket.on("game:starting", (data) => {
       const startTitle = data.startUrl.split("/wiki/")[1];
       myPath = [{ title: data.startArticle, url: data.startUrl }];
       updatePathTrail();
+      updateBackButton();
       startFairTimer();
       loadWikiPage(startTitle, data.startArticle);
     } else {
@@ -423,6 +428,7 @@ function handleWikiClick(e) {
 
   myPath.push({ title: displayName, url: cleanUrl });
   updatePathTrail();
+  updateBackButton();
 
   socket.emit("game:navigate", { article: displayName, url: cleanUrl });
   loadWikiPage(match[1], displayName);
@@ -472,6 +478,62 @@ function updatePathTrail() {
     trail.appendChild(pill);
   });
   trail.scrollLeft = trail.scrollWidth;
+}
+
+// ─── Back button ──────────────────────────────────────────────────────────────
+function goBack() {
+  if (myPath.length <= 1) return; // already at the start, nowhere to go
+
+  // Remove current page from path
+  myPath.pop();
+
+  const prev = myPath[myPath.length - 1];
+
+  // Going back costs a click (same as forward — you're still navigating)
+  clickCount++;
+  document.getElementById("game-click-count").textContent = clickCount;
+
+  document.getElementById("game-current-article").textContent = prev.title;
+  updatePathTrail();
+  updateBackButton();
+
+  // Tell server we're now on the previous article
+  socket.emit("game:navigate", { article: prev.title, url: prev.url });
+
+  // Load it — don't push to myPath since we already updated it above
+  loadWikiPageNoHistory(prev.url.split("/wiki/")[1], prev.title);
+}
+
+// Load a page without pushing to myPath (used by goBack)
+async function loadWikiPageNoHistory(title, displayTitle) {
+  pauseTimer();
+  const loadingEl  = document.getElementById("wiki-loading");
+  const wikiArea   = document.getElementById("wiki-content");
+  const titleEl    = document.getElementById("wiki-page-title");
+  const scrollArea = document.getElementById("wiki-scroll-area");
+
+  if (loadingEl)  loadingEl.classList.remove("hidden");
+  if (wikiArea)   wikiArea.innerHTML = "";
+  if (scrollArea) scrollArea.scrollTop = 0;
+
+  const lang = punished ? "zh" : "en";
+  try {
+    const { title: resolvedTitle, html } = await fetchWikiPage(title, lang);
+    if (titleEl)  titleEl.textContent  = displayTitle || resolvedTitle;
+    if (wikiArea) wikiArea.innerHTML   = html;
+    document.getElementById("game-current-article").textContent = displayTitle || resolvedTitle;
+  } catch (err) {
+    if (wikiArea) wikiArea.innerHTML = `<p style="color:#d33;padding:20px">Failed to load article.</p>`;
+  } finally {
+    if (loadingEl) loadingEl.classList.add("hidden");
+    resumeTimer();
+  }
+}
+
+function updateBackButton() {
+  const btn = document.getElementById("btn-back");
+  if (!btn) return;
+  btn.disabled = myPath.length <= 1;
 }
 
 // ─── Win ──────────────────────────────────────────────────────────────────────

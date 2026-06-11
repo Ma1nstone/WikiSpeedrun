@@ -351,3 +351,34 @@ input { font-family: inherit; }
   .gameover-card { padding: 24px 18px; }
   .countdown-number { font-size: 6rem; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   BACK BUTTON
+   ══════════════════════════════════════════════════════════ */
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: .82rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--ink-secondary);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, opacity .15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-back:hover:not(:disabled) {
+  background: var(--blue-light);
+  color: var(--blue);
+  border-color: var(--blue-mid);
+}
+.btn-back:active:not(:disabled) { transform: scale(.97); }
+.btn-back:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
