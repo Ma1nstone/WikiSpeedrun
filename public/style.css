@@ -178,104 +178,225 @@ input { font-family: inherit; }
 .wiki-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(255,255,255,.9); z-index: 5; font-size: .88rem; color: var(--ink-muted); }
 
 .wiki-scroll-area { flex: 1; overflow-y: auto; }
-@font-face {
-  font-family: "Georgia Custom";
-  src: url("/georgia.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-}
 
 /* Title bar — same as WikipediaRaces.com */
 .wiki-title-bar { background: white; border-bottom: 1px solid #eaecf0; padding: 10px 20px; max-width: 760px; margin: 0 auto; width: 100%; }
-.wiki-page-title {
-  font-size: clamp(20px, 5vw, 28px);
-  font-family: "Georgia Custom", Georgia, "Times New Roman", serif;
-  color: #202122;
-  font-weight: normal;
-  margin: 0;
-  line-height: 1.2;
-}
-
-
+.wiki-page-title { font-size: clamp(20px, 5vw, 28px); font-family: "Linux Libertine", Georgia, "Times New Roman", serif; color: #202122; font-weight: normal; margin: 0; line-height: 1.2; }
 
 /* ══════════════════════════════════════════════════════════════
-   .wiki-content — EXACT CSS from WikipediaRaces.com source
+   .wiki-content
    ══════════════════════════════════════════════════════════ */
 .wiki-content {
-  font-family: "Georgia Custom", Georgia, "Times New Roman", serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Lato, "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 15px;
   line-height: 1.65;
   color: #202122;
   padding: 12px 20px 40px;
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
-/* Valid wiki links — clickable, blue */
-.wiki-content a[href^="/wiki/"] { color: #36c; text-decoration: none; cursor: pointer; border-radius: 2px; transition: background-color .1s; }
-.wiki-content a[href^="/wiki/"]:hover { text-decoration: underline; background-color: rgba(51,102,204,.08); }
+/* ── ALL links: force blue always, never purple visited ── */
+.wiki-content a,
+.wiki-content a:visited,
+.wiki-content a:link {
+  color: #3366CC !important;
+  text-decoration: none;
+}
+.wiki-content a:hover { text-decoration: underline; }
 
-/* Red links (non-existent articles) — blocked */
-.wiki-content a.new { color: #a55858; pointer-events: none; cursor: default; }
+/* Valid /wiki/ article links — clickable */
+.wiki-content a[href^="/wiki/"] {
+  color: #3366CC !important;
+  cursor: pointer;
+}
+.wiki-content a[href^="/wiki/"]:hover {
+  text-decoration: underline;
+  background-color: rgba(51,102,204,.08);
+  border-radius: 2px;
+}
+
+/* Red links — blocked, grey */
+.wiki-content a.new {
+  color: #a55858 !important;
+  pointer-events: none;
+  cursor: default;
+}
 
 /* External links — blocked */
 .wiki-content a.external,
 .wiki-content a[href^="http"],
-.wiki-content a[href^="//"] { pointer-events: none; color: #999; cursor: not-allowed; text-decoration: none; }
+.wiki-content a[href^="//"] {
+  pointer-events: none;
+  color: #72777d !important;
+  cursor: not-allowed;
+  text-decoration: none;
+}
 
-/* Anchor links — blocked */
-.wiki-content a[href^="#"] { pointer-events: none; color: #999; }
+/* Anchor/section links (#) — enabled for TOC scrolling */
+.wiki-content a[href^="#"] {
+  color: #3366CC !important;
+  pointer-events: auto;
+  cursor: pointer;
+}
 
-/* Images — hidden (cleaner game experience, matches WikipediaRaces.com) */
-.wiki-content .thumb,
-.wiki-content .mw-file-element,
-.wiki-content figure,
-.wiki-content .tmulti { display: none; }
+/* ── Images — show them (needed for infobox flags/maps) ── */
+.wiki-content img { max-width: 100%; height: auto; }
+.wiki-content .thumb { display: block; }
+.wiki-content figure { display: block; margin: 0; }
+.wiki-content .mw-file-element { max-width: 100%; height: auto; display: block; }
+.wiki-content .tmulti { display: block; }
+.wiki-content figcaption,
+.wiki-content .thumbcaption { font-size: .82em; color: #54595d; text-align: center; margin-top: 3px; }
 
-/* Hide all chrome — infoboxes, navboxes, TOC, references, categories */
-.wiki-content .infobox,
+/* ── TABLE OF CONTENTS — show it ── */
 .wiki-content #toc,
-.wiki-content .toc,
+.wiki-content .toc {
+  display: inline-block !important;
+  background: #f8f9fa;
+  border: 1px solid #a2a9b1;
+  border-radius: 2px;
+  padding: 10px 16px 10px 10px;
+  margin: 0 0 16px 0;
+  min-width: 180px;
+  max-width: 360px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.wiki-content .toctitle h2,
+.wiki-content #toctitle {
+  font-size: 1em !important;
+  font-weight: 700;
+  border: none !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 !important;
+  display: inline;
+}
+.wiki-content .toctogglespan { font-size: .85em; color: #555; margin-left: 6px; }
+.wiki-content .tocnumber { color: #54595d; margin-right: 5px; }
+.wiki-content .toclevel-1 { margin: 2px 0; }
+.wiki-content .toclevel-2 { margin: 1px 0 1px 14px; font-size: .93em; }
+.wiki-content .toclevel-3 { margin: 1px 0 1px 24px; font-size: .9em; }
+/* TOC links — blue, working */
+.wiki-content .toc a,
+.wiki-content #toc a { color: #3366CC !important; pointer-events: auto; cursor: pointer; }
+.wiki-content .toc a:hover,
+.wiki-content #toc a:hover { text-decoration: underline; }
+
+/* ── INFOBOX — show it, float right like Wikipedia ── */
+.wiki-content .infobox {
+  display: table !important;
+  float: right;
+  clear: right;
+  margin: 0 0 20px 24px;
+  max-width: 320px;
+  width: auto;
+  background: #f8f9fa;
+  border: 1px solid #a2a9b1;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #202122;
+}
+.wiki-content .infobox caption {
+  font-weight: 700;
+  font-size: 1.05em;
+  text-align: center;
+  padding: 6px 8px;
+  background: #cee0f2;
+  caption-side: top;
+}
+.wiki-content .infobox th {
+  font-weight: 600;
+  background: #eaecf0;
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.wiki-content .infobox td {
+  padding: 4px 8px;
+  vertical-align: top;
+}
+.wiki-content .infobox img {
+  max-width: 300px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+/* Infobox links — fully clickable as article links */
+.wiki-content .infobox a[href^="/wiki/"] {
+  color: #3366CC !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+.wiki-content .infobox a[href^="/wiki/"]:hover { text-decoration: underline; }
+
+/* Navbox sidebar panels (like "Part of a series on Scandinavia") — show */
+.wiki-content .sidebar {
+  display: table !important;
+  float: right;
+  clear: right;
+  margin: 0 0 20px 24px;
+  max-width: 220px;
+  background: #f8f9fa;
+  border: 1px solid #a2a9b1;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.wiki-content .sidebar-title,
+.wiki-content .sidebar-above { font-weight: 700; text-align: center; padding: 4px; background: #cee0f2; }
+.wiki-content .sidebar-content { padding: 4px 6px; text-align: center; }
+.wiki-content .sidebar a[href^="/wiki/"] {
+  color: #3366CC !important;
+  pointer-events: auto !important;
+}
+
+/* ── Hide only footer/nav chrome ── */
 .wiki-content .navbox,
+.wiki-content .navbox-styles,
 .wiki-content .sistersitebox,
 .wiki-content .metadata,
 .wiki-content .mw-authority-control,
 .wiki-content .catlinks,
 .wiki-content .mw-editsection,
-.wiki-content .reference,
 .wiki-content .reflist,
 .wiki-content .references,
 .wiki-content .mw-references-wrap,
-.wiki-content .noprint,
 .wiki-content .mw-empty-elt,
-.wiki-content .sidebar,
 .wiki-content .portal,
 .wiki-content .mbox-small,
 .wiki-content .ambox,
-.wiki-content .mw-indicators { display: none; }
+.wiki-content .mw-indicators,
+.wiki-content .printfooter { display: none !important; }
 
-/* Cite superscripts — hidden */
+/* Citation superscripts — hidden */
 .wiki-content sup.reference { display: none; }
 
-/* Typography */
-.wiki-content h2 { font-size: 1.4em; font-weight: 600; color: #202122; border-bottom: 1px solid #eaecf0; padding-bottom: 6px; margin-top: 24px; margin-bottom: 10px; }
+/* ── Typography ── */
+.wiki-content h2 { font-size: 1.4em; font-weight: 600; color: #202122; border-bottom: 1px solid #eaecf0; padding-bottom: 6px; margin-top: 28px; margin-bottom: 10px; }
 .wiki-content h3 { font-size: 1.15em; font-weight: 600; margin-top: 18px; margin-bottom: 6px; }
 .wiki-content h4 { font-size: 1em; font-weight: 600; margin-top: 14px; margin-bottom: 4px; }
 .wiki-content p { margin: 8px 0; }
 .wiki-content ul { list-style: disc; padding-left: 1.6em; margin: 6px 0; }
 .wiki-content ol { list-style: decimal; padding-left: 1.6em; margin: 6px 0; }
 .wiki-content li { margin-bottom: 2px; }
-.wiki-content table { border-collapse: collapse; margin: 8px 0; font-size: 90%; }
-.wiki-content table td,
-.wiki-content table th { padding: 4px 8px; border: 1px solid #eaecf0; vertical-align: top; }
+.wiki-content table.wikitable { border-collapse: collapse; margin: 8px 0; font-size: 90%; }
+.wiki-content table.wikitable td,
+.wiki-content table.wikitable th { padding: 5px 8px; border: 1px solid #a2a9b1; vertical-align: top; }
+.wiki-content table.wikitable th { background: #eaecf0; font-weight: 600; }
 .wiki-content blockquote { border-left: 3px solid #c8ccd1; padding-left: 1em; margin: 8px 0; color: #54595d; }
 .wiki-content code { background: #f8f9fa; padding: 1px 4px; border-radius: 2px; font-size: 87.5%; }
-.wiki-content .hatnote { font-style: italic; color: #54595d; padding-left: 1.6em; margin-bottom: 8px; font-size: 14px; }
+.wiki-content .hatnote { font-style: italic; color: #54595d; padding-left: 1.6em; margin-bottom: 12px; font-size: 14px; }
 
-@media (max-width: 600px) {
-  .wiki-content { font-size: 16px; line-height: 1.7; }
-  .wiki-content h2 { font-size: 1.25em; }
-  .wiki-content table { display: block; overflow-x: auto; max-width: 100%; }
+/* Clear floats after content */
+.wiki-content::after { content: ""; display: table; clear: both; }
+
+@media (max-width: 700px) {
+  .wiki-content { font-size: 15px; line-height: 1.6; padding: 10px 14px 30px; }
+  .wiki-content h2 { font-size: 1.2em; }
+  .wiki-content .infobox,
+  .wiki-content .sidebar { float: none; max-width: 100%; margin: 0 0 16px 0; width: 100%; }
+  .wiki-content #toc, .wiki-content .toc { max-width: 100%; }
 }
 
 /* ══════════════════════════════════════════════════════════════

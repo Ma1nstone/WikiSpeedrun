@@ -3,13 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="educational-level" content="university">
   <title>Speed Wiki</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Linux+Libertine:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    /* Force visited links to always appear blue — never purple.
+       Browser history persists across sessions so without this
+       any previously visited Wikipedia link stays purple forever. */
+    .wiki-content a:visited { color: #3366CC !important; }
+    .wiki-content a[href^="/wiki/"]:visited { color: #3366CC !important; }
+    .wiki-content .toc a:visited,
+    .wiki-content #toc a:visited { color: #3366CC !important; }
+    .wiki-content .infobox a:visited { color: #3366CC !important; }
+    .wiki-content .sidebar a:visited { color: #3366CC !important; }
+  </style>
 </head>
 <body>
   <div id="toast-container" aria-live="polite"></div>
@@ -90,7 +100,10 @@
       <ol class="how-list">
         <li><strong>Create or join</strong> a lobby with friends using a room code.</li>
         <li>The host <strong>starts the game</strong>. Everyone gets the same start &amp; target articles.</li>
+        <li><strong>Only body text links</strong> count — no sidebars, navboxes, infoboxes, or categories.</li>
         <li>The <strong>first player</strong> to reach the target article wins instantly.</li>
+        <li><strong>No back button</strong> — find a creative path forward!</li>
+        <li>⚠️ Using the <strong>Wikipedia search</strong> switches to Chinese for 30 seconds!</li>
         <li>The timer <strong>pauses during page loads</strong> for fair competition.</li>
       </ol>
       <div class="modal-actions">
@@ -172,13 +185,6 @@
         </div>
       </div>
     </div>
-
-    <script>
-      window.addEventListener('beforeunload', function (e) {
-      e.preventDefault();
-      e.returnValue = '';
-    });
-    </script>
 
     <!-- Punishment banner -->
     <div id="punishment-banner" class="punishment-banner hidden">

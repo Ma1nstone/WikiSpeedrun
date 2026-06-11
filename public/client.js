@@ -402,7 +402,17 @@ function handleWikiClick(e) {
   const href = a.getAttribute("href");
   if (!href) return;
 
-  // Must be a /wiki/ link
+  // ── Anchor (#section) links — scroll to section, don't navigate ──
+  if (href.startsWith("#")) {
+    const target = document.getElementById(href.slice(1)) ||
+                   document.querySelector(`[name="${href.slice(1)}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return; // no click count, no navigation
+  }
+
+  // ── /wiki/ links — navigate to article ──
   const match = href.match(/\/wiki\/([^#?]+)/);
   if (!match) return;
 
@@ -411,13 +421,13 @@ function handleWikiClick(e) {
   // Block namespace links
   if (BLOCKED_PREFIXES.some(p => rawTitle.startsWith(p))) return;
 
-  // Block red links (non-existent articles)
+  // Block red links and edit links
   if (a.classList.contains("new") || href.includes("redlink=1") || href.includes("action=edit")) return;
 
   // Block external links
   if (a.classList.contains("external") || href.startsWith("http") || href.startsWith("//")) return;
 
-  // Valid click — count it
+  // Valid article click — count it
   clickCount++;
   document.getElementById("game-click-count").textContent = clickCount;
 
