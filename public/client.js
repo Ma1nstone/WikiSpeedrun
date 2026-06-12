@@ -40,7 +40,7 @@ async function fetchWikiPage(title, lang = "en") {
     action: "parse",
     page: title,
     format: "json",
-    prop: "text|displaytitle",
+    prop: "text|displaytitle|sections",
     disableeditsection: "true",
     redirects: "true",
     origin: "*",
@@ -48,7 +48,11 @@ async function fetchWikiPage(title, lang = "en") {
   const res = await fetch(`${api}?${params}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error.info || "Wikipedia API error");
-  return { title: data.parse.title, html: data.parse.text["*"] };
+  return {
+    title:    data.parse.title,
+    html:     data.parse.text["*"],
+    sections: data.parse.sections || [],
+  };
 }
 
 // ─── Online count ─────────────────────────────────────────────────────────────
@@ -427,10 +431,29 @@ async function loadWikiPage(title, displayTitle) {
   const lang = punished ? "zh" : "en";
 
   try {
-    const { title: resolvedTitle, html } = await fetchWikiPage(title, lang);
+    const { title: resolvedTitle, html, sections } = await fetchWikiPage(title, lang);
 
     if (titleEl) titleEl.textContent = displayTitle || resolvedTitle;
-    if (wikiArea) wikiArea.innerHTML = html;
+
+    // Remove any TOC Wikipedia may have injected (we build our own)
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+    const existingTOC = tempDiv.querySelector("#toc, .toc, .mw-table-of-contents");
+    if (existingTOC) existingTOC.remove();
+
+    if (wikiArea) {
+      wikiArea.innerHTML = tempDiv.innerHTML;
+      // Build and inject our own TOC from the sections API data
+      if (sections && sections.length >= 3) {
+        const toc = buildTOC(sections, wikiArea);
+        if (toc) {
+          // Insert TOC before the first paragraph
+          const firstPara = wikiArea.querySelector("p");
+          if (firstPara) wikiArea.insertBefore(toc, firstPara);
+          else wikiArea.prepend(toc);
+        }
+      }
+    }
 
     document.getElementById("game-current-article").textContent = displayTitle || resolvedTitle;
   } catch (err) {
@@ -440,6 +463,90 @@ async function loadWikiPage(title, displayTitle) {
     if (loadingEl) loadingEl.classList.add("hidden");
     resumeTimer();
   }
+}
+
+// ─── Build custom TOC from sections API data ──────────────────────────────────
+// Wikipedia's new skin removes TOC from HTML. We build it ourselves from
+// the sections[] array returned by prop=sections, which gives:
+//   { toclevel, line (heading text), anchor (id on the heading element) }
+function buildTOC(sections, wikiArea) {
+  if (!sections || sections.length < 3) return null;
+
+  // Filter to only top-level sections (toclevel 1 and 2)
+  const relevant = sections.filter(s => s.toclevel <= 2);
+  if (relevant.length < 3) return null;
+
+  const nav = document.createElement("nav");
+  nav.className = "custom-toc";
+
+  const header = document.createElement("div");
+  header.className = "custom-toc-title";
+  header.textContent = "Contents";
+
+  // Toggle hide/show
+  const toggle = document.createElement("button");
+  toggle.className = "custom-toc-toggle";
+  toggle.textContent = "hide";
+  toggle.onclick = () => {
+    const list = nav.querySelector(".custom-toc-list");
+    if (list) {
+      const hidden = list.style.display === "none";
+      list.style.display = hidden ? "" : "none";
+      toggle.textContent = hidden ? "hide" : "show";
+    }
+  };
+  header.appendChild(toggle);
+  nav.appendChild(header);
+
+  const ul = document.createElement("ul");
+  ul.className = "custom-toc-list";
+
+  relevant.forEach((section, i) => {
+    const li = document.createElement("li");
+    li.className = `custom-toc-item toc-level-${section.toclevel}`;
+
+    const a = document.createElement("a");
+    a.href = `#${section.anchor}`;
+    a.className = "custom-toc-link";
+
+    const numSpan = document.createElement("span");
+    numSpan.className = "custom-toc-num";
+    numSpan.textContent = section.number + " ";
+
+    // Decode HTML entities in the heading text (e.g. &amp; → &)
+    const tmp = document.createElement("span");
+    tmp.innerHTML = section.line;
+    const textSpan = document.createElement("span");
+    textSpan.textContent = tmp.textContent;
+
+    a.appendChild(numSpan);
+    a.appendChild(textSpan);
+
+    // Click: find the heading in wiki-content by its anchor id and scroll to it
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const scrollArea = document.getElementById("wiki-scroll-area");
+      if (!scrollArea || !wikiArea) return;
+
+      // Wikipedia headings have id on the h2/h3 directly OR on a span inside
+      const target = wikiArea.querySelector(`#${CSS.escape(section.anchor)}`) ||
+                     wikiArea.querySelector(`[id="${section.anchor}"]`) ||
+                     wikiArea.querySelector(`span[id="${section.anchor}"]`);
+
+      if (target) {
+        const containerTop = scrollArea.getBoundingClientRect().top;
+        const targetTop    = target.getBoundingClientRect().top;
+        const offset       = targetTop - containerTop + scrollArea.scrollTop - 8;
+        scrollArea.scrollTo({ top: offset, behavior: "smooth" });
+      }
+    });
+
+    li.appendChild(a);
+    ul.appendChild(li);
+  });
+
+  nav.appendChild(ul);
+  return nav;
 }
 
 // ─── Wiki click handler (delegated on #wiki-content) ─────────────────────────
@@ -625,9 +732,25 @@ async function loadWikiPageNoHistory(title, displayTitle) {
 
   const lang = punished ? "zh" : "en";
   try {
-    const { title: resolvedTitle, html } = await fetchWikiPage(title, lang);
-    if (titleEl)  titleEl.textContent  = displayTitle || resolvedTitle;
-    if (wikiArea) wikiArea.innerHTML   = html;
+    const { title: resolvedTitle, html, sections } = await fetchWikiPage(title, lang);
+    if (titleEl) titleEl.textContent = displayTitle || resolvedTitle;
+
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+    const existingTOC = tempDiv.querySelector("#toc, .toc, .mw-table-of-contents");
+    if (existingTOC) existingTOC.remove();
+
+    if (wikiArea) {
+      wikiArea.innerHTML = tempDiv.innerHTML;
+      if (sections && sections.length >= 3) {
+        const toc = buildTOC(sections, wikiArea);
+        if (toc) {
+          const firstPara = wikiArea.querySelector("p");
+          if (firstPara) wikiArea.insertBefore(toc, firstPara);
+          else wikiArea.prepend(toc);
+        }
+      }
+    }
     document.getElementById("game-current-article").textContent = displayTitle || resolvedTitle;
   } catch (err) {
     if (wikiArea) wikiArea.innerHTML = `<p style="color:#d33;padding:20px">Failed to load article.</p>`;

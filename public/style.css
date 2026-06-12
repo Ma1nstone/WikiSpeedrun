@@ -599,3 +599,74 @@ input { font-family: inherit; }
   text-overflow: ellipsis;
   color: var(--ink-secondary);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   CUSTOM TOC — built from prop=sections API data
+   Floats left like real Wikipedia, with working scroll links
+   ══════════════════════════════════════════════════════════ */
+.custom-toc {
+  float: left;
+  clear: left;
+  background: #f8f9fa;
+  border: 1px solid #a2a9b1;
+  padding: 8px 14px 10px 10px;
+  margin: 0 20px 16px 0;
+  min-width: 160px;
+  max-width: 260px;
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.custom-toc-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.custom-toc-toggle {
+  font-size: 11px;
+  color: #3366CC;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  text-decoration: underline;
+}
+.custom-toc-toggle:hover { color: #0645ad; }
+.custom-toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.custom-toc-item {
+  margin: 1px 0;
+}
+.custom-toc-item.toc-level-2 {
+  padding-left: 14px;
+  font-size: .92em;
+}
+.custom-toc-link {
+  color: #3366CC !important;
+  text-decoration: none;
+  cursor: pointer;
+  display: block;
+  line-height: 1.4;
+}
+.custom-toc-link:hover { text-decoration: underline; }
+.custom-toc-link:visited { color: #3366CC !important; }
+.custom-toc-num {
+  color: #54595d;
+  font-size: .9em;
+  margin-right: 2px;
+}
+
+@media (max-width: 700px) {
+  .custom-toc {
+    float: none;
+    max-width: 100%;
+    margin: 0 0 14px 0;
+  }
+}
