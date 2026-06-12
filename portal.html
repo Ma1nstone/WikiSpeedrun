@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Computer & Internet Information Resource Hub</title>
+  <meta name="description" content="A comprehensive educational resource covering computer science, internet technologies, hardware, software, security, and programming concepts for students and educators." />
+  <meta name="keywords" content="computer science, internet, hardware, software, programming, security, networking, educational resource" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 15px;
+      color: #202122;
+      background: #fff;
+      line-height: 1.65;
+    }
+    a { color: #3366cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Header ── */
+    .site-header {
+      border-bottom: 1px solid #a2a9b1;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: #fff;
+    }
+    .site-logo {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #202122;
+      white-space: nowrap;
+    }
+    .site-logo span { color: #3366cc; }
+    .site-search {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .site-search input {
+      border: 1px solid #a2a9b1;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      border-radius: 2px;
+      width: 200px;
+    }
+    .site-search button {
+      background: #f8f9fa;
+      border: 1px solid #a2a9b1;
+      padding: 4px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 2px;
+      font-family: inherit;
+    }
+
+    /* ── Layout ── */
+    .page-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+      display: flex;
+      gap: 28px;
+    }
+    .main-col { flex: 1; min-width: 0; }
+    .side-col { width: 240px; flex-shrink: 0; }
+
+    /* ── Page title ── */
+    .page-title {
+      font-size: 2rem;
+      font-weight: normal;
+      border-bottom: 1px solid #a2a9b1;
+      padding: 16px 0 6px;
+      margin-bottom: 14px;
+    }
+    .page-subtitle {
+      font-size: 0.9rem;
+      font-style: italic;
+      color: #54595d;
+      margin-bottom: 18px;
+    }
+
+    /* ── Content ── */
+    h2 {
+      font-size: 1.4rem;
+      font-weight: normal;
+      border-bottom: 1px solid #a2a9b1;
+      padding-bottom: 4px;
+      margin: 24px 0 10px;
+    }
+    h3 {
+      font-size: 1.1rem;
+      margin: 14px 0 6px;
+    }
+    p { margin-bottom: 10px; }
+    ul { padding-left: 1.8em; margin-bottom: 10px; }
+    ul li { margin-bottom: 3px; }
+
+    /* ── Info box ── */
+    .infobox {
+      float: right;
+      clear: right;
+      border: 1px solid #a2a9b1;
+      background: #f8f9fa;
+      padding: 0;
+      margin: 0 0 16px 20px;
+      width: 220px;
+      font-size: 13px;
+    }
+    .infobox caption {
+      background: #cee0f2;
+      font-weight: bold;
+      text-align: center;
+      padding: 5px 8px;
+      display: block;
+      font-size: 13px;
+    }
+    .infobox table { width: 100%; border-collapse: collapse; }
+    .infobox td { padding: 4px 7px; border-top: 1px solid #eaecf0; vertical-align: top; font-size: 12.5px; }
+    .infobox td:first-child { font-weight: bold; white-space: nowrap; width: 44%; }
+
+    /* ── TOC ── */
+    .toc-box {
+      display: inline-block;
+      background: #f8f9fa;
+      border: 1px solid #a2a9b1;
+      padding: 8px 16px 10px 10px;
+      margin: 0 0 16px 0;
+      font-size: 13px;
+    }
+    .toc-title { font-weight: bold; margin-bottom: 4px; }
+    .toc-box ol { padding-left: 1.4em; margin: 0; }
+    .toc-box li { margin: 2px 0; }
+    .toc-box a { color: #3366cc; }
+
+    /* ── Sidebar ── */
+    .side-col { padding-top: 16px; }
+    .side-box {
+      border: 1px solid #a2a9b1;
+      background: #f8f9fa;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .side-box-title {
+      background: #cee0f2;
+      font-weight: bold;
+      padding: 5px 8px;
+      font-size: 13px;
+    }
+    .side-box-body { padding: 8px 10px; }
+    .side-box-body ul { padding-left: 1.3em; margin: 0; }
+    .side-box-body li { margin: 3px 0; }
+
+    /* ── Interactive link — subtle, blends in ── */
+    .resource-link {
+      display: inline-block;
+      background: #eaf0fb;
+      border: 1px solid #3366cc;
+      color: #3366cc;
+      padding: 5px 14px;
+      border-radius: 2px;
+      font-size: 13.5px;
+      font-family: inherit;
+      cursor: pointer;
+      margin-top: 6px;
+      text-decoration: none;
+    }
+    .resource-link:hover { background: #d0e0f8; text-decoration: none; }
+
+    /* ── Footer ── */
+    .site-footer {
+      border-top: 1px solid #a2a9b1;
+      margin-top: 40px;
+      padding: 12px 20px;
+      font-size: 12px;
+      color: #54595d;
+      text-align: center;
+    }
+
+    /* ── Categories ── */
+    .categories {
+      border-top: 1px solid #a2a9b1;
+      padding: 8px 0;
+      font-size: 13px;
+      margin-top: 24px;
+      color: #54595d;
+    }
+    .categories span { font-weight: bold; }
+
+    /* ── hatnote ── */
+    .hatnote {
+      font-style: italic;
+      padding-left: 1.5em;
+      margin-bottom: 12px;
+      color: #54595d;
+      font-size: 14px;
+      border-left: 3px solid #eaecf0;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="site-logo">Computer &amp; Internet <span>Info</span> Hub</div>
+    <nav style="font-size:13px; display:flex; gap:14px; color:#3366cc;">
+      <a href="#">Main Page</a>
+      <a href="#">Topics</a>
+      <a href="#">Resources</a>
+      <a href="#">About</a>
+    </nav>
+    <div class="site-search">
+      <input type="text" placeholder="Search resources…" />
+      <button>Go</button>
+    </div>
+  </header>
+
+  <div class="page-wrap">
+    <main class="main-col">
+
+      <h1 class="page-title">Computer and Internet Information</h1>
+      <p class="page-subtitle">
+        This article covers general information regarding computers and the internet, including computer science,
+        engineering, hardware, software, security, and programming. Programming content may overlap with the
+        reference section; the main category remains computer and internet information.
+      </p>
+
+      <div class="hatnote">
+        For interactive learning tools and educational web activities, see the
+        <a href="#interactive-resources">Interactive Resources</a> section below.
+      </div>
+
+      <!-- Infobox -->
+      <table class="infobox">
+        <caption>Computing Overview</caption>
+        <tbody>
+          <tr><td>Field</td><td>Computer Science &amp; IT</td></tr>
+          <tr><td>Sub-fields</td><td>Hardware, Software, Networks, Security</td></tr>
+          <tr><td>Key languages</td><td>Python, Java, C++, JavaScript</td></tr>
+          <tr><td>Est.</td><td>c. 1940s (modern computing)</td></tr>
+          <tr><td>Governing body</td><td>IEEE, ACM, ISO/IEC</td></tr>
+        </tbody>
+      </table>
+
+      <!-- TOC -->
+      <div class="toc-box">
+        <div class="toc-title">Contents <a href="#" style="font-size:11px;font-weight:normal">[hide]</a></div>
+        <ol>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#hardware">Hardware</a></li>
+          <li><a href="#software">Software</a>
+            <ol style="padding-left:1.2em;list-style:decimal;margin-top:2px">
+              <li><a href="#operating-systems">Operating Systems</a></li>
+              <li><a href="#applications">Applications</a></li>
+            </ol>
+          </li>
+          <li><a href="#networking">Networking &amp; the Internet</a></li>
+          <li><a href="#security">Security</a></li>
+          <li><a href="#programming">Programming</a></li>
+          <li><a href="#interactive-resources">Interactive Resources</a></li>
+          <li><a href="#see-also">See Also</a></li>
+        </ol>
+      </div>
+
+      <h2 id="overview">Overview</h2>
+      <p>
+        <b>Computer science</b> is the study of computation, information, and automation.
+        It involves both theoretical disciplines such as algorithms, theory of computation, and information theory,
+        and applied disciplines such as the design and implementation of hardware and software.
+      </p>
+      <p>
+        The internet is a global system of interconnected computer networks that uses the Internet protocol suite
+        (TCP/IP) to communicate between networks and devices. It is a <i>network of networks</i> that consists of
+        private, public, academic, business, and government networks, linked by a broad array of electronic, wireless,
+        and optical networking technologies.
+      </p>
+
+      <h2 id="hardware">Hardware</h2>
+      <p>
+        Computer hardware includes the physical parts of a computer such as the <a href="#">central processing unit</a>
+        (CPU), <a href="#">random access memory</a> (RAM), storage devices, and input/output peripherals.
+        Modern hardware design balances performance, power consumption, and cost.
+      </p>
+      <ul>
+        <li><b>CPU</b> — executes instructions; measured in GHz clock speed and number of cores</li>
+        <li><b>RAM</b> — temporary, fast-access memory used by running programs</li>
+        <li><b>Storage</b> — HDDs and SSDs for persistent data; SSDs are significantly faster</li>
+        <li><b>GPU</b> — graphics processing; increasingly used for parallel computation and AI</li>
+        <li><b>Motherboard</b> — connects all components via buses and interfaces</li>
+      </ul>
+
+      <h2 id="software">Software</h2>
+      <p>
+        Software is a set of computer programs, instructions, and associated documentation. It can be divided into
+        system software, which manages computer resources, and application software, which performs specific tasks for users.
+      </p>
+
+      <h3 id="operating-systems">Operating Systems</h3>
+      <p>
+        An <a href="#">operating system</a> (OS) manages hardware resources and provides services for application programs.
+        Major families include Microsoft Windows, macOS, Linux distributions, and mobile platforms such as Android and iOS.
+      </p>
+
+      <h3 id="applications">Applications</h3>
+      <p>
+        Application software serves end-user purposes: word processors, browsers, databases, media players, and
+        productivity suites. <a href="#">Open-source software</a> allows users to inspect, modify, and distribute
+        the source code under various licences.
+      </p>
+
+      <h2 id="networking">Networking &amp; the Internet</h2>
+      <p>
+        Computer networking involves transmitting data between nodes using wired or wireless technologies.
+        The <a href="#">OSI model</a> provides a conceptual framework of seven layers — from physical transmission
+        up to application-level protocols like HTTP and SMTP.
+      </p>
+      <p>
+        Key concepts include <a href="#">IP addressing</a>, <a href="#">DNS resolution</a>,
+        <a href="#">packet switching</a>, and <a href="#">bandwidth management</a>.
+        The World Wide Web, built on top of the internet, uses HTTP/HTTPS protocols and HTML documents.
+      </p>
+
+      <h2 id="security">Security</h2>
+      <p>
+        <a href="#">Cybersecurity</a> protects systems, networks, and programs from digital attacks.
+        Common threats include malware, phishing, ransomware, and denial-of-service attacks.
+        Defence strategies include <a href="#">firewalls</a>, <a href="#">encryption</a>,
+        <a href="#">multi-factor authentication</a>, and regular patching.
+      </p>
+
+      <h2 id="programming">Programming</h2>
+      <p>
+        Programming is the process of creating software by writing instructions in a programming language.
+        Paradigms include <a href="#">procedural</a>, <a href="#">object-oriented</a>,
+        <a href="#">functional</a>, and <a href="#">declarative</a> programming.
+        Widely used languages include Python, JavaScript, Java, C, C++, and Rust.
+      </p>
+      <p>
+        Web development specifically involves front-end technologies (HTML, CSS, JavaScript) and
+        back-end server technologies (Node.js, Django, Rails, etc.), along with database management
+        using SQL or NoSQL systems.
+      </p>
+
+      <h2 id="interactive-resources">Interactive Resources</h2>
+      <p>
+        The following tools provide hands-on learning experiences for students studying computer science,
+        information systems, and internet literacy. These resources are designed for educational use
+        in classroom and independent study settings.
+      </p>
+
+      <h3>Wikipedia Navigation Learning Tool</h3>
+      <p>
+        This interactive tool teaches information literacy and research skills by challenging students
+        to navigate between topics using only hyperlinks within Wikipedia articles — reinforcing how
+        knowledge domains interconnect. Suitable for Key Stage 3–5 and A-Level Computing or PSHE modules.
+      </p>
+      <p>
+        The exercise develops skills in: identifying relevant hyperlinks, understanding article structure,
+        navigating hierarchical knowledge, and recognising relationships between computing concepts.
+      </p>
+
+      <a href="/" class="resource-link">▶ Open Wikipedia Navigation Exercise</a>
+
+      <div class="categories">
+        <span>Categories:</span>
+        <a href="#">Computer science</a> · <a href="#">Internet</a> · <a href="#">Educational resources</a> ·
+        <a href="#">Information technology</a> · <a href="#">Programming</a> · <a href="#">Networking</a>
+      </div>
+
+      <h2 id="see-also">See Also</h2>
+      <ul>
+        <li><a href="#">History of computing</a></li>
+        <li><a href="#">Internet governance</a></li>
+        <li><a href="#">Digital literacy</a></li>
+        <li><a href="#">Open-source software movement</a></li>
+        <li><a href="#">Artificial intelligence overview</a></li>
+      </ul>
+
+    </main>
+
+    <aside class="side-col">
+      <div class="side-box">
+        <div class="side-box-title">Key Topics</div>
+        <div class="side-box-body">
+          <ul>
+            <li><a href="#">Algorithms</a></li>
+            <li><a href="#">Data structures</a></li>
+            <li><a href="#">Computer architecture</a></li>
+            <li><a href="#">Operating systems</a></li>
+            <li><a href="#">Databases</a></li>
+            <li><a href="#">Artificial intelligence</a></li>
+            <li><a href="#">Machine learning</a></li>
+            <li><a href="#">Cloud computing</a></li>
+            <li><a href="#">Cybersecurity</a></li>
+            <li><a href="#">Web development</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="side-box">
+        <div class="side-box-title">Standards Bodies</div>
+        <div class="side-box-body">
+          <ul>
+            <li><a href="#">IEEE</a></li>
+            <li><a href="#">ACM</a></li>
+            <li><a href="#">W3C</a></li>
+            <li><a href="#">ISO/IEC JTC 1</a></li>
+            <li><a href="#">IETF</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="side-box">
+        <div class="side-box-title">Related Subjects</div>
+        <div class="side-box-body">
+          <ul>
+            <li><a href="#">Mathematics</a></li>
+            <li><a href="#">Electronics</a></li>
+            <li><a href="#">Information science</a></li>
+            <li><a href="#">Cognitive science</a></li>
+            <li><a href="#">Linguistics (NLP)</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="side-box">
+        <div class="side-box-title">Quick Reference</div>
+        <div class="side-box-body" style="font-size:12px; color:#54595d; line-height:1.5;">
+          <p>Programming may overlap with the Reference section, but the main category remains
+          <strong>Computer and Internet Info</strong>.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    Computer &amp; Internet Information Resource Hub — Educational use only ·
+    <a href="#">Privacy</a> · <a href="#">About</a> · <a href="#">Contact</a>
+  </footer>
+
+</body>
+</html>

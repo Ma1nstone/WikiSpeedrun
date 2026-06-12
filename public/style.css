@@ -173,11 +173,16 @@ input { font-family: inherit; }
    WIKIPEDIA VIEWER — div-based, no iframe
    Styles match WikipediaRaces.com approach exactly
    ══════════════════════════════════════════════════════════ */
-.wiki-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; position: relative; }
+.wiki-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; position: relative; min-width: 0; }
 
 .wiki-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(255,255,255,.9); z-index: 5; font-size: .88rem; color: var(--ink-muted); }
 
-.wiki-scroll-area { flex: 1; overflow-y: auto; }
+.wiki-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden; /* prevent horizontal scroll */
+  min-width: 0;
+}
 
 /* Title bar — same as WikipediaRaces.com */
 .wiki-title-bar { background: white; border-bottom: 1px solid #eaecf0; padding: 10px 20px; max-width: 760px; margin: 0 auto; width: 100%; }
@@ -194,6 +199,9 @@ input { font-family: inherit; }
   padding: 12px 20px 40px;
   max-width: 960px;
   margin: 0 auto;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 /* ── ALL links: force blue always, never purple visited ── */
@@ -212,8 +220,6 @@ input { font-family: inherit; }
 }
 .wiki-content a[href^="/wiki/"]:hover {
   text-decoration: underline;
-  background-color: rgba(51,102,204,.08);
-  border-radius: 2px;
 }
 
 /* Red links — blocked, grey */
@@ -607,6 +613,8 @@ input { font-family: inherit; }
 .custom-toc {
   float: left;
   clear: left;
+  position: sticky;
+  top: 8px;
   background: #f8f9fa;
   border: 1px solid #a2a9b1;
   padding: 8px 14px 10px 10px;
@@ -616,6 +624,9 @@ input { font-family: inherit; }
   font-size: 13px;
   line-height: 1.6;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  z-index: 2;
 }
 .custom-toc-title {
   font-weight: 700;
@@ -670,3 +681,40 @@ input { font-family: inherit; }
     margin: 0 0 14px 0;
   }
 }
+
+/* ── Leave Game button — fixed bottom-right of game screen ── */
+.btn-leave-game {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 14px;
+  font-size: .8rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+}
+.btn-leave-game:hover {
+  background: var(--red-light);
+  color: var(--red);
+  border-color: #f9c5c5;
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Commit badge — no tooltip cursor ── */
+.commit-badge { cursor: default; }
+
+/* ── No title tooltips on links in wiki-content ── */
+.wiki-content a { pointer-events: auto; }
+.wiki-content * { max-width: 100%; }
+.wiki-content table { table-layout: fixed; max-width: 100%; overflow-wrap: break-word; }
+.wiki-content pre { overflow-x: auto; white-space: pre-wrap; }

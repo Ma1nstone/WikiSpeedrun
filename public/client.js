@@ -134,7 +134,7 @@ async function fetchLatestCommit() {
     hashEl.textContent = sha;
     msgEl.textContent  = `${message} · ${ago}`;
     badge.classList.remove("hidden");
-    badge.title = `${commit.commit.author.name} — ${date.toLocaleString()}`;
+    // No title tooltip — user asked to remove hover text
   } catch (e) {
     // GitHub API unavailable — silently hide badge
   }
@@ -610,7 +610,13 @@ function handleWikiClick(e) {
 
   document.getElementById("game-current-article").textContent = displayName;
 
-  myPath.push({ title: displayName, url: cleanUrl });
+  // Save current scroll position on the page we're leaving
+  const scrollArea = document.getElementById("wiki-scroll-area");
+  if (scrollArea && myPath.length > 0) {
+    myPath[myPath.length - 1].scrollY = scrollArea.scrollTop;
+  }
+
+  myPath.push({ title: displayName, url: cleanUrl, scrollY: 0 });
   updatePathTrail();
   updateBackButton();
 
@@ -706,21 +712,18 @@ function goBack() {
 
   const prev = myPath[myPath.length - 1];
 
-  // Back is FREE — no click added, no click deducted
-  // (going back doesn't help you win, so no penalty needed)
-
   document.getElementById("game-current-article").textContent = prev.title;
   updatePathTrail();
   updateBackButton();
 
-  // Tell server we're back on previous article (doesn't count as navigate click)
   socket.emit("game:navigate", { article: prev.title, url: prev.url });
 
-  loadWikiPageNoHistory(prev.url.split("/wiki/")[1], prev.title);
+  // Pass saved scroll position so we restore it after load
+  loadWikiPageNoHistory(prev.url.split("/wiki/")[1], prev.title, prev.scrollY || 0);
 }
 
 // Load a page without pushing to myPath (used by goBack)
-async function loadWikiPageNoHistory(title, displayTitle) {
+async function loadWikiPageNoHistory(title, displayTitle, restoreScrollY = 0) {
   pauseTimer();
   const loadingEl  = document.getElementById("wiki-loading");
   const wikiArea   = document.getElementById("wiki-content");
@@ -753,6 +756,14 @@ async function loadWikiPageNoHistory(title, displayTitle) {
       }
     }
     document.getElementById("game-current-article").textContent = displayTitle || resolvedTitle;
+
+    // Restore the scroll position from when we left this page
+    if (scrollArea && restoreScrollY > 0) {
+      // Use requestAnimationFrame to ensure DOM has painted before scrolling
+      requestAnimationFrame(() => {
+        scrollArea.scrollTop = restoreScrollY;
+      });
+    }
   } catch (err) {
     if (wikiArea) wikiArea.innerHTML = `<p style="color:#d33;padding:20px">Failed to load article.</p>`;
   } finally {
@@ -839,7 +850,6 @@ socket.on("game:reset", () => {
   disableGameGuard();
   document.getElementById("overlay-gameover").classList.add("hidden");
   if (punishTimer) clearInterval(punishTimer);
-  clearInterval(clickCount);
   punished = false;
   document.getElementById("punishment-banner").classList.add("hidden");
   const sb = document.getElementById("game-scoreboard");
