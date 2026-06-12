@@ -214,6 +214,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btn-play-again").onclick = () => socket.emit("game:playAgain");
   document.getElementById("btn-gameover-leave").onclick = () => {
+    disableGameGuard();
     socket.emit("lobby:leave");
     document.getElementById("overlay-gameover").classList.add("hidden");
     showScreen("home");
@@ -399,6 +400,7 @@ socket.on("game:starting", (data) => {
       updatePathTrail();
       updateBackButton();
       startFairTimer();
+      enableGameGuard(); // block browser back + reload while racing
       loadWikiPage(startTitle, data.startArticle);
     } else {
       numEl.textContent = count;
@@ -451,12 +453,27 @@ function handleWikiClick(e) {
   const href = a.getAttribute("href");
   if (!href) return;
 
-  // ── Anchor (#section) links — scroll to section, don't navigate ──
+  // ── Anchor (#section) links — scroll WITHIN wiki-scroll-area ──
+  // document.getElementById won't work here because the headings are
+  // inside #wiki-content div, not at document root level.
+  // We must search inside the wiki-content container directly.
   if (href.startsWith("#")) {
-    const target = document.getElementById(href.slice(1)) ||
-                   document.querySelector(`[name="${href.slice(1)}"]`);
+    const sectionId  = href.slice(1);
+    const wikiArea   = document.getElementById("wiki-content");
+    const scrollArea = document.getElementById("wiki-scroll-area");
+    if (!wikiArea || !scrollArea) return;
+
+    // Wikipedia headings have id on the <h2>/<h3> tag or on a <span> inside them
+    const target = wikiArea.querySelector(`#${CSS.escape(sectionId)}`) ||
+                   wikiArea.querySelector(`[name="${sectionId}"]`) ||
+                   wikiArea.querySelector(`span[id="${sectionId}"]`);
+
     if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Calculate offset relative to the scrollable container
+      const containerTop  = scrollArea.getBoundingClientRect().top;
+      const targetTop     = target.getBoundingClientRect().top;
+      const offset        = targetTop - containerTop + scrollArea.scrollTop - 8;
+      scrollArea.scrollTo({ top: offset, behavior: "smooth" });
     }
     return; // no click count, no navigation
   }
@@ -491,6 +508,39 @@ function handleWikiClick(e) {
 
   socket.emit("game:navigate", { article: displayName, url: cleanUrl });
   loadWikiPage(match[1], displayName);
+}
+
+// ─── Block browser back button + reload while in-game ────────────────────────
+// Prevents accidental navigation away mid-race.
+let inGame = false;
+
+function enableGameGuard() {
+  inGame = true;
+  // Push a dummy history state so the browser back button hits it first
+  history.pushState({ gameActive: true }, "");
+
+  window.addEventListener("popstate", handlePopstate);
+  window.addEventListener("beforeunload", handleBeforeUnload);
+}
+
+function disableGameGuard() {
+  inGame = false;
+  window.removeEventListener("popstate", handlePopstate);
+  window.removeEventListener("beforeunload", handleBeforeUnload);
+}
+
+function handlePopstate(e) {
+  if (!inGame) return;
+  // Re-push state so back button never actually navigates away
+  history.pushState({ gameActive: true }, "");
+  showToast("Can't go back — you're in a race!", "warning");
+}
+
+function handleBeforeUnload(e) {
+  if (!inGame) return;
+  e.preventDefault();
+  e.returnValue = "You're in a race! Are you sure you want to leave?";
+  return e.returnValue;
 }
 
 // ─── Search punishment ────────────────────────────────────────────────────────
@@ -596,6 +646,7 @@ function updateBackButton() {
 // ─── Win ──────────────────────────────────────────────────────────────────────
 socket.on("game:won", ({ clicks, time }) => {
   stopTimer();
+  disableGameGuard(); // game finished — allow reload/back again
   const s = Math.floor(time / 1000);
   showToast(`🏆 You won in ${clicks} clicks (${Math.floor(s/60)}:${(s%60).toString().padStart(2,"00")})!`, "success");
 });
@@ -603,6 +654,7 @@ socket.on("game:won", ({ clicks, time }) => {
 // ─── Game over ────────────────────────────────────────────────────────────────
 socket.on("game:over", ({ leaderboard, winner }) => {
   stopTimer();
+  disableGameGuard(); // game finished — allow reload/back again
   const overlay = document.getElementById("overlay-gameover");
   const list    = document.getElementById("gameover-leaderboard");
   const title   = document.getElementById("gameover-title");
@@ -660,11 +712,11 @@ socket.on("game:over", ({ leaderboard, winner }) => {
 
 socket.on("game:reset", () => {
   stopTimer();
+  disableGameGuard();
   document.getElementById("overlay-gameover").classList.add("hidden");
   if (punishTimer) clearInterval(punishTimer);
   punished = false;
   document.getElementById("punishment-banner").classList.add("hidden");
-  // Clear scoreboard immediately so old scores don't linger
   const sb = document.getElementById("game-scoreboard");
   if (sb) sb.innerHTML = "";
   showScreen("lobby");
