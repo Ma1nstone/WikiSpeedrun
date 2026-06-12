@@ -15,6 +15,19 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname)));
 
+// ─── Suppress CSS/JS sourcemap 404s ──────────────────────────────────────────
+app.use((req, res, next) => {
+  if (req.path.endsWith('.css.map') || req.path.endsWith('.js.map')) {
+    return res.status(204).end();
+  }
+  next();
+});
+
+// ─── Portal route: /portal and /portal.html both work ─────────────────────────
+app.get('/portal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+});
+
 // ─── Race Challenges ──────────────────────────────────────────────────────────
 const { RACE_CHALLENGES } = require('./RaceChallenges');
 
