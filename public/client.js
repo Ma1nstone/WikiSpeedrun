@@ -447,9 +447,10 @@ async function loadWikiPage(title, displayTitle) {
       if (sections && sections.length >= 3) {
         const toc = buildTOC(sections, wikiArea);
         if (toc) {
-          // Insert TOC before the first paragraph
-          const firstPara = wikiArea.querySelector("p");
-          if (firstPara) wikiArea.insertBefore(toc, firstPara);
+          // Must use a DIRECT child — querySelector("p") finds nested <p> inside
+          // tables/infoboxes which are not direct children, causing insertBefore to throw
+          const firstDirectPara = Array.from(wikiArea.children).find(el => el.tagName === "P");
+          if (firstDirectPara) wikiArea.insertBefore(toc, firstDirectPara);
           else wikiArea.prepend(toc);
         }
       }
@@ -745,8 +746,8 @@ async function loadWikiPageNoHistory(title, displayTitle) {
       if (sections && sections.length >= 3) {
         const toc = buildTOC(sections, wikiArea);
         if (toc) {
-          const firstPara = wikiArea.querySelector("p");
-          if (firstPara) wikiArea.insertBefore(toc, firstPara);
+          const firstDirectPara = Array.from(wikiArea.children).find(el => el.tagName === "P");
+          if (firstDirectPara) wikiArea.insertBefore(toc, firstDirectPara);
           else wikiArea.prepend(toc);
         }
       }
