@@ -1,5 +1,3 @@
-# WikiSpeedrun
-
 # SpeedWiki
 
 SpeedWiki is a fast-paced Wikipedia racing game where players compete to navigate from one Wikipedia article to another using only the links found within articles.
