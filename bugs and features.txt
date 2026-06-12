@@ -1,0 +1,3 @@
+remove text popup when hovering on commit and push label on home page
+no text popup when hovering hyperlinks mid-game
+allow click of old links at top to be changed to their page

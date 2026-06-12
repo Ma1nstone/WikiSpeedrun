@@ -839,6 +839,7 @@ socket.on("game:reset", () => {
   disableGameGuard();
   document.getElementById("overlay-gameover").classList.add("hidden");
   if (punishTimer) clearInterval(punishTimer);
+  clearInterval(clickCount);
   punished = false;
   document.getElementById("punishment-banner").classList.add("hidden");
   const sb = document.getElementById("game-scoreboard");
