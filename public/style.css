@@ -167,7 +167,7 @@ input { font-family: inherit; }
 .trail-arrow { color: var(--ink-muted); font-size: .7rem; flex-shrink: 0; }
 
 /* Game main */
-.game-main { flex: 1; display: flex; overflow: hidden; }
+.game-main { flex: 1; display: flex; overflow: hidden; min-width: 0; }
 
 /* ══════════════════════════════════════════════════════════════
    WIKIPEDIA VIEWER — div-based, no iframe
@@ -297,7 +297,7 @@ input { font-family: inherit; }
 }
 
 /* ── Images: hide all inline/thumb images that break text flow ── */
-/* Keep only infobox images (maps, flags, portraits) */
+/* Keep only infobox images (maps, flags, portraits, collages) */
 .wiki-content .thumb,
 .wiki-content .thumb.tleft,
 .wiki-content .thumb.tright,
@@ -312,18 +312,28 @@ input { font-family: inherit; }
 .wiki-content .floatright,
 .wiki-content .floatleft { display: none !important; }
 
-/* Infobox images — keep these, they're key (flag, coat of arms, portrait) */
+/* Infobox images — show everything inside infobox including multi-image collages */
 .wiki-content .infobox img,
 .wiki-content .infobox .mw-file-element,
 .wiki-content .infobox figure,
-.wiki-content .infobox .thumb {
+.wiki-content .infobox .thumb,
+.wiki-content .infobox .tmulti,
+.wiki-content .infobox .thumbinner,
+.wiki-content .infobox .multiimageinner,
+.wiki-content .infobox .tsingle {
   display: block !important;
   max-width: 100% !important;
   height: auto !important;
 }
+/* Collage images inside infobox — inline-block to sit side by side */
+.wiki-content .infobox .tsingle { display: inline-block !important; }
+.wiki-content .infobox .tmulti { text-align: center !important; }
+.wiki-content .infobox .thumbcaption { display: block !important; font-size: .8em; color: #54595d; text-align: center; }
 .wiki-content .infobox figure { float: none !important; margin: 0 auto !important; }
 .wiki-content .infobox .thumb { float: none !important; clear: none !important; }
-.wiki-content .infobox .thumbinner { border: none !important; background: none !important; padding: 0 !important; }
+.wiki-content .infobox .thumbinner { border: none !important; background: none !important; padding: 0 !important; display: block !important; }
+/* Constrain all infobox images to the infobox width */
+.wiki-content .infobox img { width: 100% !important; max-width: 100% !important; height: auto !important; }
 
 /* ── TABLE OF CONTENTS — float LEFT like real Wikipedia ── */
 .wiki-content #toc,
@@ -379,14 +389,15 @@ input { font-family: inherit; }
   float: right;
   clear: right;
   margin: 0 0 20px 24px;
+  width: clamp(200px, 30%, 320px);
   max-width: 320px;
-  width: auto;
   background: #f8f9fa;
   border: 1px solid #a2a9b1;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: clamp(11px, 1.2vw, 13px);
   line-height: 1.5;
   color: #202122;
+  overflow: hidden;
 }
 .wiki-content .infobox caption {
   font-weight: 700;
@@ -570,12 +581,38 @@ input { font-family: inherit; }
 /* ══════════════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  /* Shrink game sidebar on medium screens */
+  .game-sidebar { width: 200px; }
+  .wiki-content { font-size: 14px; }
+}
+
+@media (max-width: 900px) {
+  /* Hide game sidebar, shrink TOC col */
+  .game-sidebar { display: none; }
+  .wiki-toc-col { width: 150px; }
+  .wiki-content { font-size: 13.5px; padding: 10px 14px 30px; }
+  /* Infobox narrower */
+  .wiki-content .infobox { width: clamp(160px, 28%, 240px); font-size: 11px; }
+}
+
 @media (max-width: 700px) {
   .game-sidebar { display: none; }
   .topbar-center { display: none; }
   .topbar-brand { display: none; }
   .gameover-card { padding: 24px 18px; }
   .countdown-number { font-size: 6rem; }
+  /* TOC hidden on mobile — too cramped */
+  .wiki-toc-col { display: none; }
+  .wiki-body { flex-direction: column; }
+  .wiki-content { font-size: 15px; padding: 10px 12px 30px; }
+  /* Infobox full width on mobile */
+  .wiki-content .infobox {
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 16px 0 !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
