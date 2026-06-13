@@ -269,7 +269,15 @@ function broadcastOnlineCount() {
 io.on('connection', (socket) => {
   const userId   = socket.handshake.session?.userId;
   const username = socket.handshake.session?.username;
-
+  socket.on('invite:send', ({ toId, toUsername, roomCode }) => {
+  // Find the socket of the target user and emit to them
+  for (const [id, s] of io.sockets.sockets) {
+    if (s.handshake.session?.userId?.toString() === toId.toString()) {
+      s.emit('invite:receive', { fromUsername: username, roomCode });
+      break;
+    }
+  }
+});
   onlineCount++;
   broadcastOnlineCount();
   console.log(`[+] ${socket.id} connected | total: ${onlineCount}`);

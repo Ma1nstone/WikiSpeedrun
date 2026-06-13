@@ -54,15 +54,47 @@
         <span id="home-online-count">0</span> players online
       </div>
       <div class="home-actions">
-        <button id="btn-create" class="btn btn-primary btn-large">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Create Lobby
-        </button>
-        <button id="btn-join-open" class="btn btn-secondary btn-large">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-          Join Lobby
-        </button>
-        <button id="btn-how-to-play" class="btn btn-ghost">
+  <!-- Logged out state -->
+  <div id="home-logged-out">
+    <button id="btn-open-auth" class="btn btn-primary btn-large" style="margin-bottom:10px;width:100%">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Login / Register
+    </button>
+    <button id="btn-create" class="btn btn-secondary btn-large" style="margin-bottom:10px;width:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Play as Guest
+    </button>
+  </div>
+        
+        <div id="home-logged-in" class="hidden">
+          <div class="user-bar">
+            <span class="user-bar-name" id="user-bar-name"></span>
+            <button id="btn-logout" class="btn btn-ghost" style="padding:5px 10px;font-size:.8rem">Logout</button>
+          </div>
+          <button id="btn-create" class="btn btn-primary btn-large" style="margin-bottom:10px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Lobby
+          </button>
+          <button id="btn-join-open" class="btn btn-secondary btn-large" style="margin-bottom:10px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Join Lobby
+          </button>
+          <div class="home-social-btns">
+            <button id="btn-open-friends" class="btn btn-ghost">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Friends <span id="friend-requests-badge" class="notif-badge hidden"></span>
+            </button>
+            <button id="btn-open-messages" class="btn btn-ghost">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Messages <span id="unread-badge" class="notif-badge hidden"></span>
+            </button>
+            <button id="btn-open-stats" class="btn btn-ghost">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Stats
+            </button>
+          </div>
+        </div>
+        <button id="btn-how-to-play" class="btn btn-ghost" style="width:100%">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           How to Play
         </button>
@@ -83,19 +115,78 @@
     </div>
   </div>
 
-  <!-- ═══ MODAL: NAME ═══ -->
-  <div id="modal-name" class="modal-overlay hidden">
+    <!-- ═══ MODAL: AUTH ═══ -->
+  <div id="modal-auth" class="modal-overlay hidden">
     <div class="modal-card">
-      <h2 class="modal-title" id="modal-name-title">Enter your name</h2>
-      <p class="modal-sub" id="modal-name-sub">You'll appear with this name in the lobby.</p>
-      <input type="text" id="input-name" class="text-input" placeholder="Your name…" maxlength="20" autocomplete="off" />
-      <div id="join-code-group" class="hidden">
-        <label class="input-label">Room Code</label>
-        <input type="text" id="input-room-code" class="text-input text-input-code" placeholder="e.g. XKCD7" maxlength="5" autocomplete="off" />
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login">Login</button>
+        <button class="auth-tab" id="tab-register">Register</button>
+      </div>
+      <div id="auth-error" class="auth-error hidden"></div>
+      <input type="text" id="auth-username" class="text-input" placeholder="Username…" maxlength="20" autocomplete="off" />
+      <input type="password" id="auth-password" class="text-input" placeholder="Password…" maxlength="50" autocomplete="off" />
+      <div id="register-extra" class="hidden">
+        <input type="password" id="auth-password2" class="text-input" placeholder="Confirm password…" maxlength="50" autocomplete="off" />
       </div>
       <div class="modal-actions">
-        <button id="btn-modal-cancel" class="btn btn-ghost">Cancel</button>
-        <button id="btn-modal-confirm" class="btn btn-primary">Continue</button>
+        <button id="btn-auth-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="btn-auth-submit" class="btn btn-primary">Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: FRIENDS ═══ -->
+  <div id="modal-friends" class="modal-overlay hidden">
+    <div class="modal-card modal-card-wide">
+      <h2 class="modal-title">Friends</h2>
+      <div class="friends-add-row">
+        <input type="text" id="friends-add-input" class="text-input" placeholder="Add friend by username…" style="margin:0;flex:1" />
+        <button id="btn-friends-add" class="btn btn-primary" style="margin-left:8px">Add</button>
+      </div>
+      <div id="friends-requests-section" class="hidden">
+        <div class="section-heading" style="margin-top:16px">Friend Requests</div>
+        <ul id="friends-requests-list" class="player-list"></ul>
+      </div>
+      <div class="section-heading" style="margin-top:16px">Friends <span id="friends-count" class="player-count-badge">0</span></div>
+      <ul id="friends-list" class="player-list"></ul>
+      <div class="modal-actions">
+        <button id="btn-friends-close" class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: MESSAGES ═══ -->
+  <div id="modal-messages" class="modal-overlay hidden">
+    <div class="modal-card modal-card-wide" style="max-width:520px">
+      <div class="messages-header">
+        <h2 class="modal-title" style="margin:0" id="messages-title">Messages</h2>
+        <button id="btn-messages-back" class="btn btn-ghost hidden" style="margin-left:auto">← Back</button>
+      </div>
+      <!-- Conversation list -->
+      <div id="messages-list-view">
+        <ul id="conversations-list" class="player-list" style="margin-top:12px"></ul>
+      </div>
+      <!-- Chat view -->
+      <div id="messages-chat-view" class="hidden">
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" class="text-input" placeholder="Message…" maxlength="500" style="margin:0;flex:1" />
+          <button id="btn-chat-send" class="btn btn-primary" style="margin-left:8px">Send</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-messages-close" class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: STATS ═══ -->
+  <div id="modal-stats" class="modal-overlay hidden">
+    <div class="modal-card modal-card-wide">
+      <h2 class="modal-title">My Stats</h2>
+      <div id="stats-content" class="stats-content"></div>
+      <div class="modal-actions">
+        <button id="btn-stats-close" class="btn btn-ghost">Close</button>
       </div>
     </div>
   </div>
