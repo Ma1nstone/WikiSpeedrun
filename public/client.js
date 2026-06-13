@@ -378,6 +378,8 @@ socket.on("game:starting", (data) => {
   document.getElementById("game-click-count").textContent    = "0";
   document.getElementById("path-trail").innerHTML            = "";
   document.getElementById("punishment-banner").classList.add("hidden");
+  const tocCol = document.getElementById("wiki-toc-col");
+  if (tocCol) tocCol.innerHTML = "";
   // Clear scoreboard so previous game scores don't show
   const sb = document.getElementById("game-scoreboard");
   if (sb) sb.innerHTML = "";
@@ -438,21 +440,24 @@ async function loadWikiPage(title, displayTitle) {
     // Remove any TOC Wikipedia may have injected (we build our own)
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = html;
+
+    // Remove title attributes from ALL elements — prevents browser tooltip popups on hover
+    tempDiv.querySelectorAll("[title]").forEach(el => el.removeAttribute("title"));
+
+    // Remove any TOC Wikipedia may have injected (we build our own in the side column)
     const existingTOC = tempDiv.querySelector("#toc, .toc, .mw-table-of-contents");
     if (existingTOC) existingTOC.remove();
 
-    if (wikiArea) {
-      wikiArea.innerHTML = tempDiv.innerHTML;
-      // Build and inject our own TOC from the sections API data
+    // Inject article HTML into content column
+    if (wikiArea) wikiArea.innerHTML = tempDiv.innerHTML;
+
+    // Build TOC and place it in the dedicated left column (never overlaps content)
+    const tocCol = document.getElementById("wiki-toc-col");
+    if (tocCol) {
+      tocCol.innerHTML = "";
       if (sections && sections.length >= 3) {
         const toc = buildTOC(sections, wikiArea);
-        if (toc) {
-          // Must use a DIRECT child — querySelector("p") finds nested <p> inside
-          // tables/infoboxes which are not direct children, causing insertBefore to throw
-          const firstDirectPara = Array.from(wikiArea.children).find(el => el.tagName === "P");
-          if (firstDirectPara) wikiArea.insertBefore(toc, firstDirectPara);
-          else wikiArea.prepend(toc);
-        }
+        if (toc) tocCol.appendChild(toc);
       }
     }
 
@@ -741,18 +746,18 @@ async function loadWikiPageNoHistory(title, displayTitle, restoreScrollY = 0) {
 
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = html;
+    tempDiv.querySelectorAll("[title]").forEach(el => el.removeAttribute("title"));
     const existingTOC = tempDiv.querySelector("#toc, .toc, .mw-table-of-contents");
     if (existingTOC) existingTOC.remove();
 
-    if (wikiArea) {
-      wikiArea.innerHTML = tempDiv.innerHTML;
+    if (wikiArea) wikiArea.innerHTML = tempDiv.innerHTML;
+
+    const tocCol = document.getElementById("wiki-toc-col");
+    if (tocCol) {
+      tocCol.innerHTML = "";
       if (sections && sections.length >= 3) {
         const toc = buildTOC(sections, wikiArea);
-        if (toc) {
-          const firstDirectPara = Array.from(wikiArea.children).find(el => el.tagName === "P");
-          if (firstDirectPara) wikiArea.insertBefore(toc, firstDirectPara);
-          else wikiArea.prepend(toc);
-        }
+        if (toc) tocCol.appendChild(toc);
       }
     }
     document.getElementById("game-current-article").textContent = displayTitle || resolvedTitle;

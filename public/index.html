@@ -215,12 +215,17 @@
         </div>
 
         <div id="wiki-scroll-area" class="wiki-scroll-area">
-          <!-- Title bar matching WikipediaRaces.com style -->
+          <!-- Title bar -->
           <div class="wiki-title-bar">
             <h1 id="wiki-page-title" class="wiki-page-title">—</h1>
           </div>
-          <!-- Article body injected here -->
-          <div id="wiki-content" class="wiki-content"></div>
+          <!-- Two-column body: TOC left, article right -->
+          <div class="wiki-body">
+            <div id="wiki-toc-col" class="wiki-toc-col"></div>
+            <div class="wiki-content-col">
+              <div id="wiki-content" class="wiki-content"></div>
+            </div>
+          </div>
         </div>
       </div>
 
