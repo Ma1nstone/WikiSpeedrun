@@ -217,6 +217,13 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-back").onclick = () => goBack();
 
   document.getElementById("btn-play-again").onclick = () => socket.emit("game:playAgain");
+
+  document.getElementById("btn-leave-game").onclick = () => {
+    disableGameGuard();
+    socket.emit("lobby:leave");
+    roomCode = null; isHost = false;
+    showScreen("home");
+  };
   document.getElementById("btn-gameover-leave").onclick = () => {
     disableGameGuard();
     socket.emit("lobby:leave");
@@ -379,7 +386,7 @@ socket.on("game:starting", (data) => {
   document.getElementById("path-trail").innerHTML            = "";
   document.getElementById("punishment-banner").classList.add("hidden");
   const tocCol = document.getElementById("wiki-toc-col");
-  if (tocCol) tocCol.innerHTML = "";
+  if (tocCol) { tocCol.innerHTML = ""; tocCol.classList.remove("has-toc"); }
   // Clear scoreboard so previous game scores don't show
   const sb = document.getElementById("game-scoreboard");
   if (sb) sb.innerHTML = "";
@@ -457,7 +464,14 @@ async function loadWikiPage(title, displayTitle) {
       tocCol.innerHTML = "";
       if (sections && sections.length >= 3) {
         const toc = buildTOC(sections, wikiArea);
-        if (toc) tocCol.appendChild(toc);
+        if (toc) {
+          tocCol.appendChild(toc);
+          tocCol.classList.add("has-toc");
+        } else {
+          tocCol.classList.remove("has-toc");
+        }
+      } else {
+        tocCol.classList.remove("has-toc");
       }
     }
 
@@ -757,7 +771,14 @@ async function loadWikiPageNoHistory(title, displayTitle, restoreScrollY = 0) {
       tocCol.innerHTML = "";
       if (sections && sections.length >= 3) {
         const toc = buildTOC(sections, wikiArea);
-        if (toc) tocCol.appendChild(toc);
+        if (toc) {
+          tocCol.appendChild(toc);
+          tocCol.classList.add("has-toc");
+        } else {
+          tocCol.classList.remove("has-toc");
+        }
+      } else {
+        tocCol.classList.remove("has-toc");
       }
     }
     document.getElementById("game-current-article").textContent = displayTitle || resolvedTitle;

@@ -210,7 +210,7 @@ input { font-family: inherit; }
   min-width: 0;
 }
 
-/* TOC column — fixed width, sticky, never overlaps content */
+/* TOC column — fixed width, sticky, hidden when empty */
 .wiki-toc-col {
   width: clamp(160px, 18vw, 220px);
   flex-shrink: 0;
@@ -221,10 +221,11 @@ input { font-family: inherit; }
   padding: 12px 0 12px 12px;
   border-right: 1px solid #eaecf0;
   scrollbar-width: thin;
+  display: none; /* hidden by default — JS shows it when TOC is built */
 }
-.wiki-toc-col:empty { display: none; }
+.wiki-toc-col.has-toc { display: block; }
 
-/* Article content column */
+/* Article content column — fills all space */
 .wiki-content-col {
   flex: 1;
   min-width: 0;
@@ -239,8 +240,7 @@ input { font-family: inherit; }
   font-size: clamp(13px, 1.5vw, 15px);
   line-height: 1.65;
   color: #202122;
-  padding: 12px 20px 40px;
-  max-width: 860px;
+  padding: 12px 24px 40px;
   overflow-wrap: break-word;
   word-break: break-word;
   min-width: 0;
