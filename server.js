@@ -1,11 +1,20 @@
-/**
- * SpeedWiki - server.js
- */
-
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+
+const mongoose = require('mongoose');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const bcrypt = require('bcrypt');
+const User = require('./models/User');
+const Message = require('./models/Message');
+const GameRecord = require('./models/GameRecord');
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB error:', err));
 
 const app = express();
 const server = http.createServer(app);
@@ -15,6 +24,174 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname)));
 
+app.use(express.json());
+
+// ─── Session middleware ───────────────────────────────────────────────────────
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET || 'devSecret',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI }),
+  cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
+});
+app.use(sessionMiddleware);
+io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
+
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+const requireAuth = (req, res, next) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  next();
+};
+
+// ─── Auth routes ─────────────────────────────────────────────────────────────
+app.post('/api/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    const existing = await User.findOne({ username: new RegExp(`^${username}$`, 'i') });
+    if (existing) return res.status(400).json({ error: 'Username already taken' });
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({ username, password: hash });
+    req.session.userId = user._id;
+    req.session.username = user.username;
+    res.json({ success: true, username: user.username });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username: new RegExp(`^${username}$`, 'i') });
+    if (!user) return res.status(400).json({ error: 'Invalid username or password' });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(400).json({ error: 'Invalid username or password' });
+    req.session.userId = user._id;
+    req.session.username = user.username;
+    res.json({ success: true, username: user.username });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ success: true });
+});
+
+app.get('/api/me', (req, res) => {
+  if (!req.session.userId) return res.json({ loggedIn: false });
+  res.json({ loggedIn: true, username: req.session.username, userId: req.session.userId });
+});
+
+// ─── Friends routes ───────────────────────────────────────────────────────────
+app.post('/api/friends/request', requireAuth, async (req, res) => {
+  try {
+    const { username } = req.body;
+    const target = await User.findOne({ username: new RegExp(`^${username}$`, 'i') });
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (target._id.toString() === req.session.userId.toString()) return res.status(400).json({ error: 'Cannot add yourself' });
+    const alreadyFriends = target.friends.includes(req.session.userId);
+    if (alreadyFriends) return res.status(400).json({ error: 'Already friends' });
+    const alreadyRequested = target.friendRequests.some(r => r.from.toString() === req.session.userId.toString());
+    if (alreadyRequested) return res.status(400).json({ error: 'Request already sent' });
+    target.friendRequests.push({ from: req.session.userId });
+    await target.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/friends/accept', requireAuth, async (req, res) => {
+  try {
+    const { fromId } = req.body;
+    const me = await User.findById(req.session.userId);
+    const them = await User.findById(fromId);
+    if (!me || !them) return res.status(404).json({ error: 'User not found' });
+    me.friendRequests = me.friendRequests.filter(r => r.from.toString() !== fromId);
+    if (!me.friends.includes(fromId)) me.friends.push(fromId);
+    if (!them.friends.includes(me._id)) them.friends.push(me._id);
+    await me.save(); await them.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/friends/decline', requireAuth, async (req, res) => {
+  try {
+    const { fromId } = req.body;
+    const me = await User.findById(req.session.userId);
+    me.friendRequests = me.friendRequests.filter(r => r.from.toString() !== fromId);
+    await me.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/friends', requireAuth, async (req, res) => {
+  try {
+    const me = await User.findById(req.session.userId)
+      .populate('friends', 'username')
+      .populate('friendRequests.from', 'username');
+    res.json({ friends: me.friends, requests: me.friendRequests });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─── Messaging routes ─────────────────────────────────────────────────────────
+app.post('/api/messages/send', requireAuth, async (req, res) => {
+  try {
+    const { toId, content } = req.body;
+    if (!content?.trim()) return res.status(400).json({ error: 'Empty message' });
+    const msg = await Message.create({ from: req.session.userId, to: toId, content: content.trim() });
+    res.json({ success: true, message: msg });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/messages/:withId', requireAuth, async (req, res) => {
+  try {
+    const msgs = await Message.find({
+      $or: [
+        { from: req.session.userId, to: req.params.withId },
+        { from: req.params.withId, to: req.session.userId }
+      ]
+    }).sort({ createdAt: 1 }).limit(100);
+    await Message.updateMany({ from: req.params.withId, to: req.session.userId, read: false }, { read: true });
+    res.json({ messages: msgs });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/messages/unread/count', requireAuth, async (req, res) => {
+  try {
+    const count = await Message.countDocuments({ to: req.session.userId, read: false });
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─── Stats routes ─────────────────────────────────────────────────────────────
+app.get('/api/stats/:username', async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const records = await GameRecord.find({ userId: user._id }).sort({ playedAt: -1 }).limit(20);
+    res.json({ stats: user.stats, history: records });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ─── Suppress CSS/JS sourcemap 404s ──────────────────────────────────────────
 app.use((req, res, next) => {
   if (req.path.endsWith('.css.map') || req.path.endsWith('.js.map')) {
@@ -23,7 +200,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── Portal route: /portal and /portal.html both work ─────────────────────────
+// ─── Portal route ─────────────────────────────────────────────────────────────
 app.get('/portal', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'portal.html'));
 });
@@ -90,6 +267,9 @@ function broadcastOnlineCount() {
 
 // ─── Socket Events ────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
+  const userId   = socket.handshake.session?.userId;
+  const username = socket.handshake.session?.username;
+
   onlineCount++;
   broadcastOnlineCount();
   console.log(`[+] ${socket.id} connected | total: ${onlineCount}`);
@@ -104,7 +284,7 @@ io.on('connection', (socket) => {
       target: null, targetUrl: null,
       startArticle: null, startUrl: null,
       startTime: null, gameTimer: null,
-      timeLimit: 999999, // infinite
+      timeLimit: 999999,
     };
     room.players.set(socket.id, {
       id: socket.id, name: playerName.trim().slice(0, 20),
@@ -175,7 +355,6 @@ io.on('connection', (socket) => {
       timeLimit:    room.timeLimit,
     });
 
-    // Timer still ticks (used for finish time tracking) but client ignores display
     room.gameTimer = setInterval(() => {
       const remaining = room.timeLimit - Math.floor((Date.now() - room.startTime) / 1000);
       io.to(code).emit('game:tick', { remaining });
@@ -196,7 +375,6 @@ io.on('connection', (socket) => {
     player.articlePath.push(article);
     player.clicks++;
 
-    // Normalise for win check
     const norm = s => decodeURIComponent(s).toLowerCase().replace(/_/g, ' ').trim();
     const targetSlug   = norm(room.targetUrl.replace('/wiki/', ''));
     const incomingSlug = norm((url.split('/wiki/')[1] || article));
@@ -206,6 +384,22 @@ io.on('connection', (socket) => {
       player.finished   = true;
       player.finishTime = Date.now() - room.startTime;
       player.rank       = 1;
+
+      if (userId) {
+        GameRecord.create({
+          userId:        userId,
+          username:      player.name,
+          startArticle:  room.startArticle,
+          targetArticle: room.target,
+          clicks:        player.clicks,
+          timeTaken:     player.finishTime,
+          won:           true,
+          path:          player.articlePath
+        }).catch(console.error);
+        User.findByIdAndUpdate(userId, {
+          $inc: { 'stats.gamesPlayed': 1, 'stats.gamesWon': 1, 'stats.totalClicks': player.clicks }
+        }).catch(console.error);
+      }
 
       socket.emit('game:won', {
         rank: 1, clicks: player.clicks,
